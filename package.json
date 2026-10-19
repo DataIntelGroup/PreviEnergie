@@ -14,7 +14,8 @@
     "icons": "pwa-assets-generator",
     "check": "npm run typecheck && npm test && npm run test:sql",
     "vapid": "node scripts/vapid.mjs",
-    "deploy": "node --env-file=.env.local --use-env-proxy scripts/deploy.mjs"
+    "deploy": "node --env-file=.env.local --use-env-proxy scripts/deploy.mjs",
+    "comptes:test": "node --env-file=.env.local --use-env-proxy scripts/comptes-test.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",

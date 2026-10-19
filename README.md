@@ -66,6 +66,14 @@ Tout se pilote depuis `.env.local` (modèle : `.env.example`, jamais versionné)
 | Paiement | `CINETPAY_API_KEY`, `CINETPAY_SITE_ID` | Montants en multiples de 5 FCFA, contrôlé en base. |
 | Lecture photo | `ANTHROPIC_API_KEY`, `CLAUDE_MODEL` | Défaut `claude-opus-5-5` (environ 6 FCFA par photo). `claude-haiku-5-5` coûte environ 40 fois moins cher : à comparer sur les 50 photos réelles de la phase 0. |
 
+## Comptes de test
+
+`npm run comptes:test` crée ou reprend `testeur@previenergie.test` (utilisateur) et `equipe@previenergie.test` (administrateur), profils complétés, et affiche pour chacun un code de connexion valable 10 minutes, sans envoyer d'email. Sur `/connexion` : saisir l'email, puis « J'ai déjà un code ».
+
+Sans service SMTP, l'email intégré de Supabase n'écrit qu'aux membres de l'organisation Supabase, quelques fois par heure, et contient un lien au lieu du code (le plan gratuit interdit de changer le modèle d'email sans SMTP). L'application accepte les deux.
+
+Le poste de travail est derrière un proxy qui bloque les ports PostgreSQL : `npm run deploy` bascule alors sur l'API de gestion Supabase (HTTPS) avec `SUPABASE_ACCESS_TOKEN`.
+
 ## Données de test
 
 Le seuil d'apprentissage est de 3 relevés étalés sur au moins 2 jours (6 h de tolérance) ; la prévision devient « standard » après 7 jours. Pour voir une prévision sans attendre, saisir des relevés en changeant leur date (« Relevé fait plus tôt ? »).

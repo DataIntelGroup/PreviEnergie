@@ -156,10 +156,14 @@ Deno.serve(handler(async (req) => {
     for (const s of data ?? []) subs.set(s.user_id, [...(subs.get(s.user_id) ?? []), s]);
   }
 
+  // Sans appareil abonné, pas d'envoi push : réserver la ligne la marquerait
+  // « non délivrée » et l'alerte ne repartirait plus une fois l'appareil abonné.
+  const sendable = jobs.filter((j) => j.channel !== "push" || subs.has(j.meter.user_id));
+
   let delivered = 0;
   let failed = 0;
   const gone = new Set<string>();
-  for (const job of jobs) {
+  for (const job of sendable) {
     // On réserve la ligne avant d'envoyer : deux exécutions qui se chevauchent
     // ne peuvent pas envoyer deux fois la même alerte (contrainte unique).
     const claim = await db
@@ -205,7 +209,7 @@ Deno.serve(handler(async (req) => {
     paymentsChecked,
     meters: meters.length,
     channels: available,
-    planned: jobs.length,
+    planned: sendable.length,
     delivered,
     failed,
   });

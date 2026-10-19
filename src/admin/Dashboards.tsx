@@ -137,7 +137,7 @@ export default function Dashboards({ view }: { view: "signups" | "finance" | "co
         {({ signups: s, days }) => (
           <>
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-              <Tile label="Inscrits" value={num(s.total, 0)} sub={`${num(s.complete, 0)} profils complets`} />
+              <Tile label="Inscrits" value={num(s.total, 0)} sub={`${num(s.complete, 0)} profil${s.complete > 1 ? "s" : ""} complet${s.complete > 1 ? "s" : ""}`} />
               <Tile label={`Nouveaux (${days} j)`} value={num(s.new, 0)} />
               <Tile label={`Actifs (${days} j)`} value={num(s.active, 0)} sub="au moins un relevé" />
               <Tile label="Taux d'activité" value={pct(s.total ? s.active / s.total : 0)} />

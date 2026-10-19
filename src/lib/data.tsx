@@ -3,6 +3,7 @@
 import { computeForecast, type Forecast, type Reading, type Recharge } from "@shared/prevision.ts";
 import { resolveSettings, type Settings } from "@shared/reglages.ts";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { FullPageSpinner } from "@/components/ui";
 import { useAuth } from "./auth";
 import { callFunction, supabase } from "./supabase";
 import { effectivePlanCode, type Meter, type Plan, type ReadingRow, type RechargeRow } from "./types";
@@ -136,7 +137,9 @@ export function DataProvider({ children }: { children: ReactNode }) {
     error,
   }), [ready, plans, settings, meters, currentPlan, selectedMeter, refreshMeters, histories, loadHistory, afterChange, error]);
 
-  return <DataContext.Provider value={value}>{children}</DataContext.Provider>;
+  // Rien ne s'affiche avant le premier chargement : sinon une page ouverte
+  // directement (/releve) croirait qu'il n'y a aucun compteur.
+  return <DataContext.Provider value={value}>{ready ? children : <FullPageSpinner />}</DataContext.Provider>;
 }
 
 export function useData(): DataState {
