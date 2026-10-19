@@ -1,0 +1,150 @@
+// Historique (BF-12) : consommation par jour sur 14 ou 30 jours, dépenses
+// du mois, liste des relevés et recharges avec suppression.
+import { dailyConsumption } from "@shared/prevision.ts";
+import { PAYMENT_LABELS } from "@shared/validation.ts";
+import { localParts } from "@shared/temps.ts";
+import { useMemo, useState } from "react";
+import { Link } from "react-router-dom";
+import { BarChart } from "@/components/BarChart";
+import { MeterPicker } from "@/components/MeterPicker";
+import { Button, Card, Notice, PageTitle, Sheet, useToast } from "@/components/ui";
+import { useData, useForecast } from "@/lib/data";
+import { fcfa, fmtDate, fmtDateTime, kwh } from "@/lib/format";
+import { errorMessage, supabase } from "@/lib/supabase";
+
+type Item =
+  | { kind: "releve"; id: string; at: string; value: number; source: string }
+  | { kind: "recharge"; id: string; at: string; kwh: number; amount: number; code: string | null; method: string | null };
+
+export default function Historique() {
+  const { selectedMeter, currentPlan, afterChange } = useData();
+  const { forecast, history } = useForecast(selectedMeter);
+  const toast = useToast();
+  const [days, setDays] = useState<14 | 30>(14);
+  const [deleting, setDeleting] = useState<Item | null>(null);
+  const [busy, setBusy] = useState(false);
+  const limitDays = currentPlan?.history_days ?? null;
+
+  const bars = useMemo(() => {
+    if (!forecast) return [];
+    return dailyConsumption(forecast.segments, days, new Date()).map((d) => ({
+      label: String(Number(d.date.slice(8, 10))),
+      title: fmtDate(`${d.date}T12:00:00Z`),
+      value: d.kwh,
+    }));
+  }, [forecast, days]);
+
+  const monthKey = localParts(new Date()).date.slice(0, 7);
+  const monthSpend = (history?.recharges ?? [])
+    .filter((r) => localParts(new Date(r.purchased_at)).date.startsWith(monthKey))
+    .reduce((s, r) => s + r.amount_fcfa, 0);
+
+  const items = useMemo<Item[]>(() => {
+    const since = limitDays ? Date.now() - limitDays * 86_400_000 : 0;
+    const list: Item[] = [
+      ...(history?.readings ?? []).map((r) => ({ kind: "releve" as const, id: r.id, at: r.taken_at, value: r.value, source: r.source })),
+      ...(history?.recharges ?? []).map((r) => ({
+        kind: "recharge" as const, id: r.id, at: r.purchased_at, kwh: r.kwh, amount: r.amount_fcfa, code: r.code, method: r.payment_method,
+      })),
+    ];
+    return list.filter((i) => new Date(i.at).getTime() >= since).sort((a, b) => b.at.localeCompare(a.at));
+  }, [history, limitDays]);
+
+  async function remove(item: Item) {
+    if (!selectedMeter) return;
+    setBusy(true);
+    const { error } = await supabase.from(item.kind === "releve" ? "readings" : "recharges").delete().eq("id", item.id);
+    setBusy(false);
+    setDeleting(null);
+    if (error) return toast(errorMessage(error), "error");
+    await afterChange(selectedMeter.id);
+    toast(item.kind === "releve" ? "Relevé supprimé" : "Recharge supprimée");
+  }
+
+  if (!selectedMeter) return <Notice>Ajoute d'abord un compteur.</Notice>;
+
+  return (
+    <div className="space-y-4">
+      <PageTitle>Historique</PageTitle>
+      <MeterPicker />
+
+      <Card>
+        <div className="mb-3 flex items-center justify-between">
+          <h2 className="font-semibold">Consommation par jour</h2>
+          <div className="flex rounded-lg bg-stone-100 p-1 text-sm">
+            {([14, 30] as const).map((d) => (
+              <button key={d} onClick={() => setDays(d)} className={`rounded-md px-3 py-1 font-medium ${days === d ? "bg-white text-stone-900 shadow-sm" : "text-stone-500"}`}>
+                {d} j
+              </button>
+            ))}
+          </div>
+        </div>
+        <BarChart bars={bars} format={(v) => kwh(v)} emptyText="Les barres apparaîtront après deux relevés espacés de quelques heures." />
+      </Card>
+
+      {selectedMeter.kind === "prepaid" && (
+        <Card className="flex items-center justify-between">
+          <div>
+            <p className="text-sm text-stone-500">Dépenses du mois</p>
+            <p className="tabular text-2xl font-bold">{fcfa(monthSpend)}</p>
+          </div>
+          <Link to={`/recharge?compteur=${selectedMeter.id}`} className="rounded-xl px-4 py-2 font-semibold text-brand-700 ring-1 ring-brand-200">
+            + Recharge
+          </Link>
+        </Card>
+      )}
+
+      <div>
+        <h2 className="mb-2 font-semibold">Relevés et recharges</h2>
+        {items.length === 0 ? (
+          <p className="text-sm text-stone-500">Rien pour l'instant.</p>
+        ) : (
+          <ul className="divide-y divide-stone-200 overflow-hidden rounded-2xl bg-white ring-1 ring-stone-200">
+            {items.map((i) => (
+              <li key={`${i.kind}-${i.id}`} className="flex items-center justify-between gap-3 px-4 py-3">
+                <div className="min-w-0">
+                  {i.kind === "releve" ? (
+                    <p className="font-medium">
+                      Relevé <span className="tabular">{kwh(i.value)}</span>
+                      {i.source === "photo" && <span className="ml-2 rounded bg-stone-100 px-1.5 py-0.5 text-xs text-stone-500">photo</span>}
+                    </p>
+                  ) : (
+                    <p className="font-medium text-emerald-700">
+                      Recharge <span className="tabular">+{kwh(i.kwh)}</span>
+                      {i.amount > 0 && <span className="text-stone-600"> · {fcfa(i.amount)}</span>}
+                    </p>
+                  )}
+                  <p className="truncate text-sm text-stone-500">
+                    {fmtDateTime(i.at)}
+                    {i.kind === "recharge" && i.method ? ` · ${PAYMENT_LABELS[i.method as keyof typeof PAYMENT_LABELS] ?? i.method}` : ""}
+                    {i.kind === "recharge" && i.code ? ` · code ${i.code}` : ""}
+                  </p>
+                </div>
+                <button onClick={() => setDeleting(i)} className="shrink-0 rounded-lg p-2 text-stone-400 hover:bg-red-50 hover:text-red-600" aria-label="Supprimer">
+                  <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
+                    <path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14" />
+                  </svg>
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+        {limitDays && (
+          <p className="mt-3 text-sm text-stone-500">
+            Offre gratuite : {limitDays} derniers jours affichés. <Link to="/offres" className="font-medium text-brand-700">Historique illimité</Link>
+          </p>
+        )}
+      </div>
+
+      <Sheet open={!!deleting} onClose={() => setDeleting(null)} title="Supprimer cette ligne ?">
+        {deleting && (
+          <div className="space-y-3">
+            <p className="text-stone-700">La prévision sera recalculée sans elle.</p>
+            <Button variant="danger" className="w-full" loading={busy} onClick={() => void remove(deleting)}>Supprimer</Button>
+            <Button variant="ghost" className="w-full" onClick={() => setDeleting(null)}>Annuler</Button>
+          </div>
+        )}
+      </Sheet>
+    </div>
+  );
+}

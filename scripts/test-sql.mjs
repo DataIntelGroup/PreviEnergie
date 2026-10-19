@@ -293,6 +293,19 @@ async function main() {
     assert(p.plan_code === "gratuit" && p.plan_expires_at === null);
   });
 
+  console.log("\nNotifications push");
+  await check("un appareil passe au dernier compte abonné", async () => {
+    const ep = "https://push.example/abc";
+    await user(A, (q) => q("select register_push($1, 'k', 'a', 'ua')", [ep]));
+    await user(SUPPORT, (q) => q("select register_push($1, 'k2', 'a2', 'ua')", [ep]));
+    const { rows } = await db.query("select user_id, p256dh from push_subscriptions where endpoint = $1", [ep]);
+    assert(rows.length === 1 && rows[0].user_id === SUPPORT && rows[0].p256dh === "k2");
+    const mine = await user(A, (q) => q("select * from push_subscriptions"));
+    assert(mine.rows.length === 0, "l'ancien compte voit encore l'abonnement");
+  });
+  await check("anon ne s'abonne pas", () =>
+    rejects(() => anon((q) => q("select register_push('https://x', 'k', 'a', 'ua')")), /42501|permission/));
+
   console.log("\nPhotos et suppression de compte");
   await check("photos : chacun dans son dossier", async () => {
     await user(A, (q) => q("insert into storage.objects (bucket_id, name) values ('photos', $1)", [`${A}/releve.jpg`]));

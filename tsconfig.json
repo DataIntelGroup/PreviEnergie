@@ -1,0 +1,45 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "lib": [
+      "ES2023",
+      "DOM",
+      "DOM.Iterable"
+    ],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "allowImportingTsExtensions": true,
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noFallthroughCasesInSwitch": true,
+    "types": [
+      "vite/client",
+      "vite-plugin-pwa/client"
+    ],
+    "paths": {
+      "@/*": [
+        "./src/*"
+      ],
+      "@shared/*": [
+        "./supabase/functions/_shared/*"
+      ]
+    }
+  },
+  "include": [
+    "src",
+    "tests",
+    "supabase/functions/_shared/prevision.ts",
+    "supabase/functions/_shared/alertes.ts",
+    "supabase/functions/_shared/reglages.ts",
+    "supabase/functions/_shared/temps.ts",
+    "supabase/functions/_shared/validation.ts"
+  ],
+  "exclude": [
+    "src/sw.ts"
+  ]
+}
