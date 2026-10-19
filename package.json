@@ -12,7 +12,9 @@
     "test:watch": "vitest",
     "test:sql": "node scripts/test-sql.mjs",
     "icons": "pwa-assets-generator",
-    "check": "npm run typecheck && npm test && npm run test:sql"
+    "check": "npm run typecheck && npm test && npm run test:sql",
+    "vapid": "node scripts/vapid.mjs",
+    "deploy": "node --env-file=.env.local --use-env-proxy scripts/deploy.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",

@@ -8,7 +8,7 @@ export const isConfigured = Boolean(url && key);
 
 // Seule la clé publique (anon / publishable) est embarquée : la RLS protège
 // les données, la clé service_role ne quitte jamais le serveur.
-export const supabase = createClient(url ?? "http://localhost", key ?? "absente", {
+export const supabase = createClient(url || "http://localhost", key || "absente", {
   auth: { persistSession: true, autoRefreshToken: true, detectSessionInUrl: false },
 });
 
