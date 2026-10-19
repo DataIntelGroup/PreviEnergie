@@ -1,4 +1,5 @@
 // Mise en ligne côté Supabase, étape par étape, à partir de .env.local.
+//   npm run deploy -- purge --oui         efface le schéma du premier MVP (une seule fois)
 //   npm run deploy -- db                  migrations (suivies comme la CLI Supabase)
 //   npm run deploy -- auth                code à 6 chiffres, modèle d'email, SMTP, URL du site
 //   npm run deploy -- secrets             secrets des fonctions Edge
@@ -48,10 +49,130 @@ async function management(method, path, body) {
   return text ? JSON.parse(text) : null;
 }
 
+// ---------------------------------------------------------------- ancien schéma
+// Le projet contenait le schéma du premier MVP (tables alert_preferences,
+// message_templates, outage_feedback…), sans son code. Suppression confirmée
+// par l'utilisateur le 2026-10-19. Cette étape efface ce que ce schéma a
+// créé : objets de public, déclencheurs sur auth.users, politiques du
+// stockage, tâches pg_cron, fonctions Edge et photos. Les comptes de
+// connexion (auth.users) sont conservés.
+// Sauvegarde préalable : sauvegardes/previenergie-ancien-schema-2026-10-19/.
+const PURGE_SQL = `
+do $purge$
+declare r record;
+begin
+  for r in
+    select t.tgname from pg_trigger t
+    join pg_class c on c.oid = t.tgrelid join pg_namespace n on n.oid = c.relnamespace
+    join pg_proc p on p.oid = t.tgfoid join pg_namespace pn on pn.oid = p.pronamespace
+    where n.nspname = 'auth' and c.relname = 'users' and not t.tgisinternal and pn.nspname = 'public'
+  loop
+    execute format('drop trigger %I on auth.users', r.tgname);
+    raise notice 'déclencheur auth.users supprimé : %', r.tgname;
+  end loop;
+
+  for r in select policyname from pg_policies where schemaname = 'storage' and tablename = 'objects'
+           and (coalesce(qual, '') like '%photos%' or coalesce(with_check, '') like '%photos%')
+  loop
+    execute format('drop policy %I on storage.objects', r.policyname);
+  end loop;
+
+  for r in select c.relname, c.relkind from pg_class c join pg_namespace n on n.oid = c.relnamespace
+           where n.nspname = 'public' and c.relkind in ('v', 'm')
+  loop
+    execute format(case r.relkind when 'm' then 'drop materialized view if exists public.%I cascade' else 'drop view if exists public.%I cascade' end, r.relname);
+  end loop;
+
+  for r in select tablename from pg_tables where schemaname = 'public' loop
+    execute format('drop table if exists public.%I cascade', r.tablename);
+  end loop;
+
+  for r in select p.oid::regprocedure::text as sig from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+           where n.nspname = 'public' and not exists (select 1 from pg_depend d where d.objid = p.oid and d.deptype = 'e')
+  loop
+    execute 'drop function if exists ' || r.sig || ' cascade';
+  end loop;
+
+  for r in select t.typname from pg_type t join pg_namespace n on n.oid = t.typnamespace
+           where n.nspname = 'public' and t.typtype in ('e', 'd')
+             and not exists (select 1 from pg_depend d where d.objid = t.oid and d.deptype = 'e')
+  loop
+    execute format('drop type if exists public.%I cascade', r.typname);
+  end loop;
+
+  if to_regclass('supabase_migrations.schema_migrations') is not null then
+    delete from supabase_migrations.schema_migrations;
+  end if;
+  if to_regclass('cron.job') is not null then
+    perform cron.unschedule(jobid) from cron.job;
+  end if;
+end $purge$;
+`;
+
+async function purge() {
+  if (!process.argv.includes("--oui")) {
+    console.log("Efface l'ancien schéma, ses fonctions Edge et ses photos. Relancer avec --oui pour confirmer :");
+    console.log("  npm run deploy -- purge --oui");
+    return;
+  }
+  await withDb(async (db) => {
+    db.on("notice", (n) => console.log(`  ${n.message}`));
+    const before = await db.query("select count(*)::int n from pg_tables where schemaname = 'public'");
+    await db.query("begin");
+    try {
+      await db.query(PURGE_SQL);
+      await db.query("commit");
+    } catch (e) {
+      await db.query("rollback");
+      throw e;
+    }
+    const after = await db.query("select count(*)::int n from pg_tables where schemaname = 'public'");
+    console.log(`Base : ${before.rows[0].n} table(s) avant, ${after.rows[0].n} après. Comptes de connexion conservés.`);
+  });
+
+  // Photos de l'ancien schéma (l'API de stockage efface les fichiers, pas seulement les lignes).
+  const key = need("SUPABASE_SERVICE_ROLE_KEY");
+  const headers = { apikey: key, authorization: `Bearer ${key}`, "content-type": "application/json" };
+  const list = async (prefix) => {
+    const res = await fetch(`${URL_}/storage/v1/object/list/photos`, { method: "POST", headers, body: JSON.stringify({ prefix, limit: 1000 }) });
+    return res.ok ? res.json() : [];
+  };
+  const files = [];
+  const walk = async (prefix) => {
+    for (const e of await list(prefix)) {
+      const path = prefix ? `${prefix}/${e.name}` : e.name;
+      if (e.id) files.push(path);
+      else await walk(path);
+    }
+  };
+  await walk("");
+  if (files.length) {
+    const res = await fetch(`${URL_}/storage/v1/object/photos`, { method: "DELETE", headers, body: JSON.stringify({ prefixes: files }) });
+    console.log(res.ok ? `${files.length} photo(s) effacée(s).` : `Photos non effacées : ${res.status}`);
+  }
+
+  // Fonctions Edge de l'ancien MVP (jeton personnel nécessaire).
+  if (process.env.SUPABASE_ACCESS_TOKEN && REF) {
+    const mine = new Set(readdirSync(join(ROOT, "supabase/functions"), { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name));
+    const deployed = (await management("GET", `/projects/${REF}/functions`)) ?? [];
+    for (const f of deployed) {
+      if (mine.has(f.slug)) continue;
+      await management("DELETE", `/projects/${REF}/functions/${f.slug}`);
+      console.log(`Fonction Edge supprimée : ${f.slug}`);
+    }
+  } else {
+    console.log("Sans SUPABASE_ACCESS_TOKEN, les anciennes fonctions Edge n'ont pas été vérifiées.");
+  }
+}
+
 // ---------------------------------------------------------------- base
 async function migrate() {
   const files = readdirSync(join(ROOT, "supabase/migrations")).filter((f) => f.endsWith(".sql")).sort();
   await withDb(async (db) => {
+    const legacy = await db.query("select to_regclass('public.alert_preferences') is not null as old");
+    if (legacy.rows[0].old) {
+      throw new Error("L'ancien schéma du premier MVP est encore en place. Lancer d'abord : npm run deploy -- purge --oui");
+    }
     // Même table que la CLI Supabase : `supabase db push` verra ces migrations comme appliquées.
     await db.query(`create schema if not exists supabase_migrations;
       create table if not exists supabase_migrations.schema_migrations (version text primary key, statements text[], name text)`);
@@ -215,7 +336,7 @@ async function status() {
 }
 
 const [step, arg] = process.argv.slice(2);
-const steps = { db: migrate, auth, secrets, functions, cron, admin: () => admin(arg), status };
+const steps = { purge, db: migrate, auth, secrets, functions, cron, admin: () => admin(arg), status };
 try {
   if (step === "all") {
     for (const s of ["db", "auth", "secrets", "functions", "cron"]) {
@@ -225,7 +346,7 @@ try {
   } else if (steps[step]) {
     await steps[step]();
   } else {
-    console.log("Étapes : db, auth, secrets, functions, cron, admin <email>, status, all");
+    console.log("Étapes : purge --oui, db, auth, secrets, functions, cron, admin <email>, status, all");
   }
 } catch (e) {
   console.error(`\nErreur : ${e.message}`);

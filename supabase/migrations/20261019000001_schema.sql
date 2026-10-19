@@ -68,6 +68,11 @@ end $$;
 create trigger on_auth_user_created after insert on auth.users
   for each row execute function public.handle_new_user();
 
+-- Comptes déjà créés avant cette migration : profil vide, à compléter.
+insert into public.profiles (id, email)
+select id, email from auth.users
+on conflict (id) do nothing;
+
 create function public.touch_updated_at() returns trigger
 language plpgsql set search_path = '' as $$
 begin
