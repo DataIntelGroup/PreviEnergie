@@ -9,6 +9,7 @@ import { useData } from "@/lib/data";
 import { fmtDateLong } from "@/lib/format";
 import { callFunction, errorMessage, supabase } from "@/lib/supabase";
 import { effectivePlanCode } from "@/lib/types";
+import { R } from "@/lib/routes";
 
 function Row({ to, label, value }: { to: string; label: string; value?: string }) {
   return (
@@ -67,7 +68,7 @@ export default function Compte() {
     try {
       await callFunction("supprimer-compte", { confirm: "SUPPRIMER" });
       await signOut();
-      navigate("/connexion", { replace: true });
+      navigate(R.connexion, { replace: true });
     } catch (e) {
       setError(errorMessage(e));
       setBusy(false);
@@ -75,21 +76,26 @@ export default function Compte() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-3xl space-y-4">
       <PageTitle>Mon compte</PageTitle>
 
-      <Card>
+      <Card className="flex flex-col gap-4 p-5 sm:flex-row sm:items-center">
+        <span className="grid h-16 w-16 shrink-0 place-items-center rounded-2xl bg-brand-600 text-2xl font-extrabold text-white">
+          {(profile.first_name ?? "?").slice(0, 1).toUpperCase()}
+        </span>
+        <div className="min-w-0 flex-1">
         <p className="text-lg font-semibold">{profile.first_name} {profile.last_name}</p>
         <p className="text-sm text-stone-500">{profile.email}</p>
         <p className="text-sm text-stone-500">{profile.phone ? formatPhone(profile.phone) : ""}{profile.commune ? ` · ${profile.commune}` : ""}</p>
-        <Button variant="secondary" className="mt-3 w-full" onClick={() => setEditing(true)}>Modifier mon profil</Button>
+        </div>
+        <Button variant="secondary" className="sm:w-auto" onClick={() => setEditing(true)}>Modifier mon profil</Button>
       </Card>
 
       <div className="divide-y divide-stone-200 overflow-hidden rounded-2xl bg-white ring-1 ring-stone-200">
-        <Row to="/compteurs" label="Mes compteurs" value={String(meters.length)} />
-        <Row to="/offres" label="Mon offre" value={plan?.name} />
-        <Row to="/alertes" label="Mes alertes" />
-        <Row to="/confidentialite" label="Confidentialité" />
+        <Row to={R.compteurs} label="Mes compteurs" value={String(meters.length)} />
+        <Row to={R.offres} label="Mon offre" value={plan?.name} />
+        <Row to={R.alertes} label="Mes alertes" />
+        <Row to={R.confidentialite} label="Confidentialité" />
       </div>
       {profile.plan_expires_at && plan?.code !== "gratuit" && (
         <p className="text-sm text-stone-500">Offre active jusqu'au {fmtDateLong(profile.plan_expires_at)}.</p>

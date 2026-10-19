@@ -116,7 +116,14 @@ async function main() {
     assert(rows[0]?.email === "awa@previenergie.test" && rows[0].plan_code === "gratuit");
   });
   await check("anon ne lit pas les profils", () => rejects(() => anon((q) => q("select * from profiles")), /42501|permission/));
-  await check("anon ne lit pas les offres", () => rejects(() => anon((q) => q("select * from plans")), /42501|permission/));
+  await check("anon lit les offres actives seulement, sans pouvoir les modifier", async () => {
+    await db.query("update plans set active = false where code = 'famille_pro'");
+    const { rows } = await anon((q) => q("select code from plans order by sort"));
+    await db.query("update plans set active = true where code = 'famille_pro'");
+    assert(rows.map((r) => r.code).join() === "gratuit,essentiel", rows.map((r) => r.code).join());
+    await rejects(() => anon((q) => q("update plans set price_fcfa = 0")), /42501|permission/);
+  });
+  await check("anon ne lit pas les réglages", () => rejects(() => anon((q) => q("select * from settings")), /42501|permission/));
   await check("un utilisateur ne voit que son profil", async () => {
     const { rows } = await user(A, (q) => q("select id from profiles"));
     assert(rows.length === 1 && rows[0].id === A, `${rows.length} profils vus`);

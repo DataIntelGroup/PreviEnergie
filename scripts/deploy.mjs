@@ -267,7 +267,11 @@ async function auth() {
   const site = process.env.APP_URL ?? "http://localhost:5173";
   const body = {
     site_url: site,
-    uri_allow_list: [site, "http://localhost:5173", "http://localhost:4173"].filter((v, i, a) => a.indexOf(v) === i).join(","),
+    // « /** » : le lien de l'email peut ramener sur n'importe quelle page (/app, /app/offres…).
+    uri_allow_list: [site, "http://localhost:5173", "http://localhost:4173"]
+      .filter((v, i, a) => a.indexOf(v) === i)
+      .flatMap((o) => [o, `${o.replace(/\/$/, "")}/**`])
+      .join(","),
     external_email_enabled: true,
     disable_signup: false,
     mailer_otp_length: 6,

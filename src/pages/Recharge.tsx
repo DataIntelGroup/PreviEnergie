@@ -12,6 +12,7 @@ import { toEngine, useData } from "@/lib/data";
 import { fromLocalInput, toLocalInput } from "@/lib/format";
 import type { CompressedPhoto } from "@/lib/photo";
 import { errorMessage, supabase } from "@/lib/supabase";
+import { R, withQuery } from "@/lib/routes";
 
 interface ReceiptRead {
   lisible: boolean;
@@ -56,7 +57,7 @@ export default function Recharge() {
     if (meter) void loadHistory(meter.id).catch(console.error);
   }, [meter?.id]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  if (meters.length === 0) return <Navigate to="/compteurs?premier=1" replace />;
+  if (meters.length === 0) return <Navigate to={withQuery(R.compteurs, { premier: 1 })} replace />;
   if (!meter || !profile) return null;
   if (meter.kind === "postpaid") {
     return (
@@ -122,7 +123,7 @@ export default function Recharge() {
         supabase.from("cutoff_feedback").select("id").eq("meter_id", meter.id).eq("cycle_key", previousCycle).limit(1),
       ]);
       if (alerts?.length && !fb?.length) setAskCut(previousCycle);
-      else navigate("/", { replace: true });
+      else navigate(R.app, { replace: true });
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -131,7 +132,7 @@ export default function Recharge() {
   }
 
   return (
-    <div>
+    <div className="mx-auto max-w-2xl">
       <PageTitle>Nouvelle recharge</PageTitle>
       <MeterPicker />
       {step === "photo" ? (
@@ -174,8 +175,8 @@ export default function Recharge() {
         </form>
       )}
 
-      <Sheet open={!!askCut} onClose={() => navigate("/", { replace: true })} title="Une question rapide">
-        {askCut && <CutoffQuestion meterId={meter.id} cycleKey={askCut} question="As-tu été coupé avant cette recharge ?" onDone={() => navigate("/", { replace: true })} />}
+      <Sheet open={!!askCut} onClose={() => navigate(R.app, { replace: true })} title="Une question rapide">
+        {askCut && <CutoffQuestion meterId={meter.id} cycleKey={askCut} question="As-tu été coupé avant cette recharge ?" onDone={() => navigate(R.app, { replace: true })} />}
       </Sheet>
     </div>
   );

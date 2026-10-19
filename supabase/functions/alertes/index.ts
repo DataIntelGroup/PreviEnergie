@@ -190,7 +190,7 @@ Deno.serve(handler(async (req) => {
     const result = await send(
       job.channel,
       { email: p.email, phone: p.phone, push: subs.get(job.meter.user_id) ?? [] },
-      { title: TITLES[job.type], body: job.message, url: appLink(`/?compteur=${job.meter.id}`), tag: `${job.meter.id}:${job.type}` },
+      { title: TITLES[job.type], body: job.message, url: appLink(`/app?compteur=${job.meter.id}`), tag: `${job.meter.id}:${job.type}` },
     );
     for (const id of result.gonePush ?? []) gone.add(id);
     if (result.ok) {

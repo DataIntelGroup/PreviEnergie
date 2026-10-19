@@ -10,6 +10,7 @@ import Dashboards, { type Dashboard } from "./Dashboards";
 import Journal from "./Journal";
 import Reglages from "./Reglages";
 import Utilisateurs from "./Utilisateurs";
+import { R } from "@/lib/routes";
 
 interface AdminState {
   days: number;
@@ -77,11 +78,11 @@ export default function AdminApp() {
         <div className="min-h-dvh bg-stone-50 lg:flex">
           <aside className="border-b border-stone-200 bg-white lg:sticky lg:top-0 lg:h-dvh lg:w-60 lg:shrink-0 lg:border-r lg:border-b-0">
             <div className="flex items-center justify-between px-4 py-3 lg:block">
-              <Link to="/admin" className="flex items-center gap-2 font-bold">
+              <Link to={R.admin} className="flex items-center gap-2 font-bold">
                 <Logo className="h-7 w-7" />
                 <span>Back-office</span>
               </Link>
-              <Link to="/" className="text-sm font-medium text-brand-700 lg:mt-2 lg:block">← Retour à l'app</Link>
+              <Link to={R.app} className="text-sm font-medium text-brand-700 lg:mt-2 lg:block">← Retour à l'app</Link>
             </div>
             <nav className="flex gap-1 overflow-x-auto px-2 pb-2 lg:flex-col lg:px-3" aria-label="Back-office">
               {NAV.map((n) => (

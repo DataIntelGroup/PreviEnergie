@@ -11,6 +11,7 @@ import { toEngine, useData } from "@/lib/data";
 import { fmtAgo, fromLocalInput, kwh, toLocalInput } from "@/lib/format";
 import type { CompressedPhoto } from "@/lib/photo";
 import { errorMessage, supabase } from "@/lib/supabase";
+import { R, withQuery } from "@/lib/routes";
 
 interface MeterRead {
   lisible: boolean;
@@ -60,7 +61,7 @@ export default function Releve() {
   const photoUrl = useMemo(() => (photo ? URL.createObjectURL(photo.blob) : null), [photo]);
   useEffect(() => () => { if (photoUrl) URL.revokeObjectURL(photoUrl); }, [photoUrl]);
 
-  if (meters.length === 0) return <Navigate to="/compteurs?premier=1" replace />;
+  if (meters.length === 0) return <Navigate to={withQuery(R.compteurs, { premier: 1 })} replace />;
   if (!meter || !profile) return null;
 
   function onRead(p: CompressedPhoto, read: ReadResponse<MeterRead>) {
@@ -117,7 +118,7 @@ export default function Releve() {
       if (error) throw error;
       await afterChange(meter.id);
       toast("Relevé enregistré");
-      navigate("/", { replace: true });
+      navigate(R.app, { replace: true });
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -128,7 +129,7 @@ export default function Releve() {
   const blocking = checks.some((c) => c.level === "error");
 
   return (
-    <div>
+    <div className="mx-auto max-w-2xl">
       <PageTitle>Nouveau relevé</PageTitle>
       <MeterPicker />
       {params.get("premier") === "1" && (
@@ -185,7 +186,7 @@ export default function Releve() {
               {c.code === "balance_up" && (
                 <>
                   {" "}
-                  <Link to={`/recharge?compteur=${meter.id}`} className="font-semibold underline">Ajouter la recharge</Link>
+                  <Link to={withQuery(R.recharge, { compteur: meter.id })} className="font-semibold underline">Ajouter la recharge</Link>
                 </>
               )}
             </Notice>

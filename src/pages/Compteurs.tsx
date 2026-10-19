@@ -5,6 +5,7 @@ import { Button, Card, Field, Input, Notice, PageTitle, Select, Sheet, useToast 
 import { useData } from "@/lib/data";
 import { errorMessage, supabase } from "@/lib/supabase";
 import type { Meter } from "@/lib/types";
+import { R, withQuery } from "@/lib/routes";
 
 const KIND_LABEL = { prepaid: "Prépayé", postpaid: "Postpayé" } as const;
 
@@ -94,7 +95,7 @@ export default function Compteurs() {
         </Card>
       )}
 
-      <ul className="space-y-3">
+      <ul className="grid gap-3 sm:grid-cols-2">
         {meters.map((m) => (
           <li key={m.id}>
             <Card className="flex items-center justify-between gap-3">
@@ -119,7 +120,7 @@ export default function Compteurs() {
         {full && (
           <>
             {" "}
-            <Link to="/offres" className="font-medium text-brand-700">Passer à une offre supérieure</Link> pour en ajouter.
+            <Link to={R.offres} className="font-medium text-brand-700">Passer à une offre supérieure</Link> pour en ajouter.
           </>
         )}
       </p>
@@ -131,7 +132,7 @@ export default function Compteurs() {
             await refreshMeters();
             selectMeter(m.id);
             toast("Compteur ajouté");
-            if (first) navigate(`/releve?compteur=${m.id}&premier=1`);
+            if (first) navigate(withQuery(R.releve, { compteur: m.id, premier: 1 }));
           }}
         />
       </Sheet>
