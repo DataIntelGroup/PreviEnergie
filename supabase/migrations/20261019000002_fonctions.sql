@@ -115,7 +115,7 @@ declare
 begin
   perform public.require_role(true);
   if p_key not in ('thresholds', 'hours', 'safetyMargin', 'readingReminderHours', 'anomalyRatio',
-                   'defaultPriceKwh', 'quietHours', 'channelTypes', 'unitCosts', 'templates') then
+                   'defaultPriceKwh', 'channelTypes', 'unitCosts', 'templates') then
     raise exception 'Réglage inconnu : %', p_key using errcode = '22023';
   end if;
   select value into v_old from public.settings where key = p_key;
@@ -357,11 +357,31 @@ begin
     'signups', v_signups, 'finance', v_finance, 'costs', v_costs, 'activity', v_activity);
 end $$;
 
+-- ---------------------------------------------------------------- abonnement push
+-- Un appareil appartient au dernier compte qui s'y est abonné : sans cette
+-- fonction, la RLS empêcherait de reprendre l'abonnement d'un autre compte.
+create function public.register_push(p_endpoint text, p_p256dh text, p_auth text, p_user_agent text)
+returns void language plpgsql security definer set search_path = '' as $$
+begin
+  if auth.uid() is null then
+    raise exception 'Connexion requise' using errcode = '42501';
+  end if;
+  if p_endpoint !~ '^https://' or length(p_endpoint) > 1000 then
+    raise exception 'Abonnement invalide' using errcode = '22023';
+  end if;
+  insert into public.push_subscriptions (user_id, endpoint, p256dh, auth, user_agent)
+  values (auth.uid(), p_endpoint, p_p256dh, p_auth, left(p_user_agent, 200))
+  on conflict (endpoint) do update
+    set user_id = auth.uid(), p256dh = excluded.p256dh, auth = excluded.auth,
+        user_agent = excluded.user_agent, created_at = now();
+end $$;
+
 -- ---------------------------------------------------------------- droits d'exécution
 revoke execute on all functions in schema public from public, anon;
 
 grant execute on function public.is_staff(), public.is_admin(), public.is_active_user(),
-  public.effective_plan(uuid), public.owns_meter(uuid) to authenticated;
+  public.effective_plan(uuid), public.owns_meter(uuid),
+  public.register_push(text, text, text, text) to authenticated;
 grant execute on function public.admin_users(text, integer, integer),
   public.admin_update_user(uuid, text, timestamptz, public.user_role, boolean),
   public.admin_set_setting(text, jsonb),

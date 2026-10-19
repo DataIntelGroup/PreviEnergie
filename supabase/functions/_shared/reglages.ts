@@ -35,8 +35,6 @@ export interface Settings {
   anomalyRatio: number;
   /** Prix du kWh retenu tant que l'utilisateur n'a saisi aucune recharge. */
   defaultPriceKwh: number;
-  /** Heures calmes par défaut d'un nouvel utilisateur. */
-  quietHours: { start: string; end: string };
   /** Types d'alerte autorisés par canal (le SMS reste réservé à l'urgent). */
   channelTypes: Record<Channel, AlertType[]>;
   /** Coûts unitaires en FCFA, pour le tableau des coûts et de la marge. */
@@ -52,14 +50,13 @@ export const DEFAULT_SETTINGS: Settings = {
   readingReminderHours: { learning: 24, standard: 48 },
   anomalyRatio: 2,
   defaultPriceKwh: 110,
-  quietHours: { start: "21:30", end: "07:00" },
   channelTypes: {
     push: [...ALERT_TYPES],
     email: [...ALERT_TYPES],
     whatsapp: ["niveau_j5", "niveau_j2", "veille", "veille_rappel", "anomalie", "releve"],
     sms: ["niveau_j2", "veille"],
   },
-  unitCosts: { whatsapp: 30, sms: 25, email: 0.5, aiRead: 4, push: 0 },
+  unitCosts: { whatsapp: 30, sms: 25, email: 0.5, aiRead: 6, push: 0 },
   templates: {
     niveau_j5:
       "{nom}, il reste environ {jours} jours de courant sur « {compteur} ». Pense à prévoir ta recharge.",
