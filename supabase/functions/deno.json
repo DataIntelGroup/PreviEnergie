@@ -1,0 +1,5 @@
+{
+  "nodeModulesDir": "none",
+  "compilerOptions": { "lib": ["deno.ns", "dom", "deno.unstable"] },
+  "lint": { "rules": { "exclude": ["no-import-prefix"] } }
+}
