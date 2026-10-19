@@ -1,0 +1,28 @@
+# Configuration Supabase CLI de PréviÉnergie (projet doxnpachkxjxxmirybwy).
+project_id = "previenergie"
+
+[auth]
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173"]
+
+[auth.email]
+enable_signup = true
+# Code à 6 chiffres, sans lien magique (BF-01).
+otp_length = 6
+otp_expiry = 600
+
+[auth.email.template.magic_link]
+subject = "Ton code PréviÉnergie"
+content_path = "./supabase/templates/code-connexion.html"
+
+[auth.email.template.confirmation]
+subject = "Ton code PréviÉnergie"
+content_path = "./supabase/templates/code-connexion.html"
+
+# Appelée par pg_cron avec un secret partagé, pas par un utilisateur.
+[functions.alertes]
+verify_jwt = false
+
+# Appelée par CinetPay : le statut est toujours revérifié auprès de CinetPay.
+[functions.paiement-notif]
+verify_jwt = false
