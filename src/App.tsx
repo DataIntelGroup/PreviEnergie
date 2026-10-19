@@ -1,24 +1,28 @@
-// Routes et gardes : connexion obligatoire, puis profil complet (BF-02)
-// avant toute page ; back-office réservé à l'équipe, chargé à part.
+// Routes : page publique sur /, application sous /app (connexion et profil
+// complet obligatoires, BF-02), back-office sous /admin, chargé à part.
+// Les adresses viennent toutes de lib/routes.ts.
 import { lazy, type ReactNode, Suspense } from "react";
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { AppLayout, BareLayout } from "@/components/Layout";
 import { Button, FullPageSpinner, Notice, ToastProvider } from "@/components/ui";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { DataProvider } from "@/lib/data";
+import { R } from "@/lib/routes";
 import { isProfileComplete } from "@/lib/types";
-import Accueil from "@/pages/Accueil";
-import Alertes from "@/pages/Alertes";
-import Compte from "@/pages/Compte";
-import Compteurs from "@/pages/Compteurs";
-import Confidentialite from "@/pages/Confidentialite";
-import Connexion from "@/pages/Connexion";
-import Historique from "@/pages/Historique";
-import Offres from "@/pages/Offres";
-import ProfilRequis from "@/pages/ProfilRequis";
-import Recharge from "@/pages/Recharge";
-import Releve from "@/pages/Releve";
 
+// Chaque écran est chargé à part : la page publique reste légère.
+const Accueil = lazy(() => import("@/pages/Accueil"));
+const Alertes = lazy(() => import("@/pages/Alertes"));
+const Compte = lazy(() => import("@/pages/Compte"));
+const Compteurs = lazy(() => import("@/pages/Compteurs"));
+const Confidentialite = lazy(() => import("@/pages/Confidentialite"));
+const Connexion = lazy(() => import("@/pages/Connexion"));
+const Historique = lazy(() => import("@/pages/Historique"));
+const Landing = lazy(() => import("@/pages/Landing"));
+const Offres = lazy(() => import("@/pages/Offres"));
+const ProfilRequis = lazy(() => import("@/pages/ProfilRequis"));
+const Recharge = lazy(() => import("@/pages/Recharge"));
+const Releve = lazy(() => import("@/pages/Releve"));
 const Admin = lazy(() => import("@/admin/AdminApp"));
 
 function RequireSession({ children }: { children: ReactNode }) {
@@ -26,8 +30,8 @@ function RequireSession({ children }: { children: ReactNode }) {
   const location = useLocation();
   if (loading) return <FullPageSpinner />;
   if (!session) {
-    const suite = location.pathname === "/" ? "" : `?suite=${encodeURIComponent(location.pathname + location.search)}`;
-    return <Navigate to={`/connexion${suite}`} replace />;
+    const suite = location.pathname === R.app ? "" : `?suite=${encodeURIComponent(location.pathname + location.search)}`;
+    return <Navigate to={`${R.connexion}${suite}`} replace />;
   }
   return <>{children}</>;
 }
@@ -51,7 +55,7 @@ function RequireProfile() {
       </BareLayout>
     );
   }
-  if (!isProfileComplete(profile)) return <Navigate to="/profil" replace />;
+  if (!isProfileComplete(profile)) return <Navigate to={R.profil} replace />;
   return (
     <DataProvider>
       <Outlet />
@@ -61,20 +65,48 @@ function RequireProfile() {
 
 function RequireStaff({ children }: { children: ReactNode }) {
   const { profile } = useAuth();
-  if (profile?.role !== "admin" && profile?.role !== "support") return <Navigate to="/" replace />;
+  if (profile?.role !== "admin" && profile?.role !== "support") return <Navigate to={R.app} replace />;
   return <>{children}</>;
 }
+
+/** Visiteur : page publique. Connecté : directement son tableau de bord. */
+function PublicHome() {
+  const { session, loading } = useAuth();
+  if (loading) return <FullPageSpinner />;
+  return session ? <Navigate to={R.app} replace /> : <Landing />;
+}
+
+/** Anciennes adresses (avant /app), gardées pour les liens déjà envoyés. */
+function LegacyRedirect({ to }: { to: string }) {
+  const { search } = useLocation();
+  return <Navigate to={`${to}${search}`} replace />;
+}
+
+const LEGACY: [string, string][] = [
+  ["/releve", R.releve],
+  ["/recharge", R.recharge],
+  ["/historique", R.historique],
+  ["/alertes", R.alertes],
+  ["/compteurs", R.compteurs],
+  ["/offres", R.offres],
+  ["/compte", R.compte],
+];
 
 export default function App() {
   return (
     <BrowserRouter>
       <AuthProvider>
         <ToastProvider>
+          <Suspense fallback={<FullPageSpinner />}>
           <Routes>
-            <Route path="/connexion" element={<Connexion />} />
-            <Route path="/profil" element={<RequireSession><ProfilRequis /></RequireSession>} />
+            <Route path={R.accueilPublic} element={<PublicHome />} />
+            <Route path={R.connexion} element={<Connexion />} />
+            <Route path={R.confidentialite} element={<BareLayout aside={false}><Confidentialite /></BareLayout>} />
+            <Route path={R.profil} element={<RequireSession><ProfilRequis /></RequireSession>} />
+            {LEGACY.map(([from, to]) => <Route key={from} path={from} element={<LegacyRedirect to={to} />} />)}
+
             <Route element={<RequireSession><RequireProfile /></RequireSession>}>
-              <Route element={<AppLayout />}>
+              <Route path={R.app} element={<AppLayout />}>
                 <Route index element={<Accueil />} />
                 <Route path="releve" element={<Releve />} />
                 <Route path="recharge" element={<Recharge />} />
@@ -83,10 +115,10 @@ export default function App() {
                 <Route path="compteurs" element={<Compteurs />} />
                 <Route path="offres" element={<Offres />} />
                 <Route path="compte" element={<Compte />} />
-                <Route path="confidentialite" element={<Confidentialite />} />
+                <Route path="*" element={<Navigate to={R.app} replace />} />
               </Route>
               <Route
-                path="admin/*"
+                path={`${R.admin}/*`}
                 element={
                   <RequireStaff>
                     <Suspense fallback={<FullPageSpinner />}>
@@ -96,8 +128,9 @@ export default function App() {
                 }
               />
             </Route>
-            <Route path="*" element={<Navigate to="/" replace />} />
+            <Route path="*" element={<Navigate to={R.accueilPublic} replace />} />
           </Routes>
+          </Suspense>
         </ToastProvider>
       </AuthProvider>
     </BrowserRouter>

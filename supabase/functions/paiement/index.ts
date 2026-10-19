@@ -54,7 +54,7 @@ Deno.serve(handler(async (req) => {
       description: `PreviEnergie ${plan.name} 30 jours`,
       customer: { firstName: profile.first_name, lastName: profile.last_name, phone: profile.phone, email: profile.email },
       notifyUrl: `${fnUrl}/paiement-notif`,
-      returnUrl: `${appUrl}/offres?transaction=${transactionId}`,
+      returnUrl: `${appUrl}/app/offres?transaction=${transactionId}`,
     });
     return json(req, { url, transactionId });
   } catch (e) {

@@ -204,6 +204,7 @@ async function sendSms(to: Recipient, msg: Message): Promise<SendResult> {
   return res.ok ? { ok: true } : { ok: false, error: `orange sms ${res.status} ${(await res.text()).slice(0, 200)}` };
 }
 
-export function appLink(path = "/"): string {
+// Chemins de l'application : voir src/lib/routes.ts (tout est sous /app).
+export function appLink(path = "/app"): string {
   return new URL(path, APP_URL()).toString();
 }

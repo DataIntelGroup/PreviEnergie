@@ -10,6 +10,7 @@ import { fmtDateTime } from "@/lib/format";
 import { disablePush, enablePush, isIos, pushState, type PushState } from "@/lib/push";
 import { callFunction, errorMessage, supabase } from "@/lib/supabase";
 import type { AlertRow } from "@/lib/types";
+import { R } from "@/lib/routes";
 
 const DESCRIPTIONS: Record<Channel, string> = {
   push: "Gratuit, sur ce téléphone.",
@@ -98,7 +99,9 @@ export default function Alertes() {
       )}
       {push === "denied" && <Notice tone="warning">Les notifications sont bloquées pour ce site. Autorise-les dans les réglages du navigateur.</Notice>}
 
-      <Card>
+      <div className="grid gap-6 lg:grid-cols-5">
+      <div className="space-y-6 lg:col-span-3">
+      <Card className="p-5">
         <h2 className="font-semibold">Canaux</h2>
         <div className="divide-y divide-stone-100">
           {(["push", "email", "whatsapp", "sms"] as Channel[]).map((c) => {
@@ -124,11 +127,11 @@ export default function Alertes() {
           })}
         </div>
         {!planChannels.includes("whatsapp") && (
-          <Link to="/offres" className="mt-2 block text-sm font-semibold text-brand-700">Recevoir aussi mes alertes par WhatsApp et SMS →</Link>
+          <Link to={R.offres} className="mt-2 block text-sm font-semibold text-brand-700">Recevoir aussi mes alertes par WhatsApp et SMS →</Link>
         )}
       </Card>
 
-      <Card>
+      <Card className="p-5">
         <h2 className="font-semibold">Heures calmes</h2>
         <p className="mb-3 text-sm text-stone-500">Aucune alerte pendant cette plage.</p>
         <div className="grid grid-cols-2 gap-3">
@@ -144,9 +147,18 @@ export default function Alertes() {
           Enregistrer
         </Button>
       </Card>
+      </div>
 
-      <div>
-        <h2 className="mb-2 font-semibold">Dernières alertes</h2>
+      <div className="space-y-4 lg:col-span-2">
+        <div className="rounded-2xl bg-stone-900 p-5 text-white">
+          <p className="font-bold">Le calendrier des alertes</p>
+          <ul className="mt-3 space-y-2 text-sm text-stone-300">
+            <li><span className="font-semibold text-white">18 h</span> · environ 5 jours, puis 2 jours, puis la veille</li>
+            <li><span className="font-semibold text-white">21 h</span> · rappel le soir de la veille</li>
+            <li><span className="font-semibold text-white">19 h</span> · relance si tu n'as pas fait de relevé</li>
+          </ul>
+        </div>
+        <h2 className="font-semibold">Dernières alertes</h2>
         {recent.length === 0 ? (
           <p className="text-sm text-stone-500">Aucune alerte pour l'instant.</p>
         ) : (
@@ -162,6 +174,7 @@ export default function Alertes() {
             ))}
           </ul>
         )}
+      </div>
       </div>
       {isIos() && push !== "ios-install" && push !== "on" && <p className="text-xs text-stone-500">Astuce : sur iPhone, les notifications ne marchent qu'avec l'app installée sur l'écran d'accueil.</p>}
     </div>

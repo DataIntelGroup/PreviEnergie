@@ -122,8 +122,8 @@ export function Notice({
 
 export function PageTitle({ children, action }: { children: ReactNode; action?: ReactNode }) {
   return (
-    <div className="mb-4 flex items-center justify-between gap-3">
-      <h1 className="text-2xl font-bold text-stone-900">{children}</h1>
+    <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+      <h1 className="text-2xl font-extrabold tracking-tight text-stone-900 sm:text-3xl">{children}</h1>
       {action}
     </div>
   );

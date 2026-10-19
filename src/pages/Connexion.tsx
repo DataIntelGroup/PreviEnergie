@@ -5,6 +5,7 @@ import { Navigate, useSearchParams } from "react-router-dom";
 import { BareLayout } from "@/components/Layout";
 import { Button, Field, Input, Notice } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
+import { safeNext } from "@/lib/routes";
 import { errorMessage, isConfigured, supabase } from "@/lib/supabase";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
@@ -31,7 +32,7 @@ export default function Connexion() {
     if (step === "code") codeRef.current?.focus();
   }, [step]);
 
-  if (session) return <Navigate to={params.get("suite")?.startsWith("/") && !params.get("suite")?.startsWith("//") ? params.get("suite")! : "/"} replace />;
+  if (session) return <Navigate to={safeNext(params.get("suite"))} replace />;
 
   async function sendCode(e?: FormEvent) {
     e?.preventDefault();
@@ -46,7 +47,7 @@ export default function Connexion() {
       email: clean,
       options: {
         shouldCreateUser: true,
-        emailRedirectTo: `${window.location.origin}/`,
+        emailRedirectTo: `${window.location.origin}${safeNext(params.get("suite"))}`,
         data: { source: params.get("source") ?? params.get("utm_source") ?? "" },
       },
     });

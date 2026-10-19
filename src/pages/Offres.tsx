@@ -97,7 +97,7 @@ export default function Offres() {
         </Card>
       )}
 
-      <div className="space-y-3">
+      <div className="grid gap-4 lg:grid-cols-3">
         {plans.filter((p) => p.active).map((p) => {
           const isCurrent = p.code === current;
           return (

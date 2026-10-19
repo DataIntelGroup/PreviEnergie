@@ -30,7 +30,7 @@ Deno.serve(handler(async (req) => {
   const result = await send(channel, { email: profile.email, phone: profile.phone, push: subs ?? [] }, {
     title: "Notification de test",
     body: message,
-    url: appLink("/alertes"),
+    url: appLink("/app/alertes"),
     tag: "test",
   });
   await db.from("alerts").insert({

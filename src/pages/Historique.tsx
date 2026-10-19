@@ -11,6 +11,7 @@ import { Button, Card, Notice, PageTitle, Sheet, useToast } from "@/components/u
 import { useData, useForecast } from "@/lib/data";
 import { fcfa, fmtDate, fmtDateTime, kwh } from "@/lib/format";
 import { errorMessage, supabase } from "@/lib/supabase";
+import { R, withQuery } from "@/lib/routes";
 
 type Item =
   | { kind: "releve"; id: string; at: string; value: number; source: string }
@@ -68,7 +69,8 @@ export default function Historique() {
       <PageTitle>Historique</PageTitle>
       <MeterPicker />
 
-      <Card>
+      <div className="grid gap-4 lg:grid-cols-3">
+      <Card className="p-5 lg:col-span-2">
         <div className="mb-3 flex items-center justify-between">
           <h2 className="font-semibold">Consommation par jour</h2>
           <div className="flex rounded-lg bg-stone-100 p-1 text-sm">
@@ -82,17 +84,23 @@ export default function Historique() {
         <BarChart bars={bars} format={(v) => kwh(v)} emptyText="Les barres apparaîtront après deux relevés espacés de quelques heures." />
       </Card>
 
-      {selectedMeter.kind === "prepaid" && (
-        <Card className="flex items-center justify-between">
-          <div>
-            <p className="text-sm text-stone-500">Dépenses du mois</p>
-            <p className="tabular text-2xl font-bold">{fcfa(monthSpend)}</p>
-          </div>
-          <Link to={`/recharge?compteur=${selectedMeter.id}`} className="rounded-xl px-4 py-2 font-semibold text-brand-700 ring-1 ring-brand-200">
-            + Recharge
-          </Link>
+      <div className="grid content-start gap-4 sm:grid-cols-2 lg:grid-cols-1">
+        {selectedMeter.kind === "prepaid" && (
+          <Card className="bg-hero p-5 text-white ring-0">
+            <p className="text-sm text-white/80">Dépenses du mois</p>
+            <p className="tabular mt-1 text-3xl font-extrabold">{fcfa(monthSpend)}</p>
+            <Link to={withQuery(R.recharge, { compteur: selectedMeter.id })} className="mt-4 inline-block rounded-xl bg-white px-4 py-2 text-sm font-bold text-brand-700">
+              + Nouvelle recharge
+            </Link>
+          </Card>
+        )}
+        <Card className="p-5">
+          <p className="text-sm text-stone-500">Consommé sur {days} jours</p>
+          <p className="tabular mt-1 text-3xl font-extrabold">{kwh(bars.reduce((s, b) => s + (b.value ?? 0), 0))}</p>
+          <p className="mt-1 text-sm text-stone-500">Moyenne pondérée : {kwh(forecast?.avgKwhDay ?? null)} par jour</p>
         </Card>
-      )}
+      </div>
+      </div>
 
       <div>
         <h2 className="mb-2 font-semibold">Relevés et recharges</h2>
@@ -131,7 +139,7 @@ export default function Historique() {
         )}
         {limitDays && (
           <p className="mt-3 text-sm text-stone-500">
-            Offre gratuite : {limitDays} derniers jours affichés. <Link to="/offres" className="font-medium text-brand-700">Historique illimité</Link>
+            Offre gratuite : {limitDays} derniers jours affichés. <Link to={R.offres} className="font-medium text-brand-700">Historique illimité</Link>
           </p>
         )}
       </div>

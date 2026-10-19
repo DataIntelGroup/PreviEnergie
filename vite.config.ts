@@ -27,7 +27,7 @@ export default defineConfig({
         short_name: "PréviÉnergie",
         description: "Suivi de ta consommation CIE et alerte avant la coupure.",
         lang: "fr",
-        start_url: "/",
+        start_url: "/app",
         scope: "/",
         display: "standalone",
         orientation: "portrait",
