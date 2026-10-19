@@ -28,9 +28,76 @@ function need(name) {
   return v;
 }
 
+// Valeur SQL littérale, pour l'API de gestion qui n'accepte pas de paramètres.
+function literal(v) {
+  if (v === null || v === undefined) return "null";
+  if (typeof v === "number" || typeof v === "bigint") return String(v);
+  if (typeof v === "boolean") return v ? "true" : "false";
+  if (Array.isArray(v)) return `array[${v.map(literal).join(", ")}]::text[]`;
+  if (typeof v === "object") return `${literal(JSON.stringify(v))}::jsonb`;
+  return `'${String(v).replace(/'/g, "''")}'`;
+}
+
+/**
+ * Accès SQL par l'API de gestion (HTTPS), quand le réseau bloque le port
+ * PostgreSQL — c'est le cas derrière le proxy d'entreprise. Chaque requête
+ * ouvre sa propre session : l'atomicité passe par `atomic()`.
+ */
+function apiDb() {
+  const run = async (sql) => {
+    const res = await fetch(`${API}/projects/${REF}/database/query`, {
+      method: "POST",
+      headers: { authorization: `Bearer ${need("SUPABASE_ACCESS_TOKEN")}`, "content-type": "application/json" },
+      body: JSON.stringify({ query: sql }),
+    });
+    const text = await res.text();
+    if (!res.ok) throw new Error(`SQL refusé (${res.status}) : ${text.slice(0, 500)}`);
+    const rows = text ? JSON.parse(text) : [];
+    return { rows: Array.isArray(rows) ? rows : [], rowCount: Array.isArray(rows) ? rows.length : 0 };
+  };
+  // Remplacement en une passe : un $1 contenu dans une valeur insérée n'est pas relu.
+  const inline = (sql, params = []) => sql.replace(/\$(\d+)\b/g, (all, n) => (Number(n) <= params.length ? literal(params[Number(n) - 1]) : all));
+  return {
+    via: "API de gestion",
+    query: (sql, params) => run(inline(sql, params)),
+    atomic: (steps) => run(`begin;\n${steps.map((s) => inline(s.sql, s.params)).join(";\n")};\ncommit;`),
+    on() {},
+    end: async () => {},
+  };
+}
+
+function pgDb(client) {
+  return {
+    via: "connexion PostgreSQL",
+    query: (sql, params) => client.query(sql, params),
+    atomic: async (steps) => {
+      await client.query("begin");
+      try {
+        for (const s of steps) await client.query(s.sql, s.params);
+        await client.query("commit");
+      } catch (e) {
+        await client.query("rollback");
+        throw e;
+      }
+    },
+    on: (event, cb) => client.on(event, cb),
+    end: () => client.end(),
+  };
+}
+
 async function withDb(fn) {
-  const db = new pg.Client({ connectionString: need("SUPABASE_DB_URL"), ssl: { rejectUnauthorized: false } });
-  await db.connect();
+  let db;
+  if (process.env.SUPABASE_DB_URL?.startsWith("postgres")) {
+    const client = new pg.Client({ connectionString: process.env.SUPABASE_DB_URL, ssl: { rejectUnauthorized: false }, connectionTimeoutMillis: 8000 });
+    try {
+      await client.connect();
+      db = pgDb(client);
+    } catch (e) {
+      if (!process.env.SUPABASE_ACCESS_TOKEN) throw e;
+      console.log(`  Port PostgreSQL injoignable (${e.code ?? e.message}) : passage par l'API de gestion.`);
+    }
+  }
+  db ??= apiDb();
   try {
     return await fn(db);
   } finally {
@@ -118,14 +185,7 @@ async function purge() {
   await withDb(async (db) => {
     db.on("notice", (n) => console.log(`  ${n.message}`));
     const before = await db.query("select count(*)::int n from pg_tables where schemaname = 'public'");
-    await db.query("begin");
-    try {
-      await db.query(PURGE_SQL);
-      await db.query("commit");
-    } catch (e) {
-      await db.query("rollback");
-      throw e;
-    }
+    await db.atomic([{ sql: PURGE_SQL }]);
     const after = await db.query("select count(*)::int n from pg_tables where schemaname = 'public'");
     console.log(`Base : ${before.rows[0].n} table(s) avant, ${after.rows[0].n} après. Comptes de connexion conservés.`);
   });
@@ -184,15 +244,14 @@ async function migrate() {
       if (done.has(version)) continue;
       const sql = readFileSync(join(ROOT, "supabase/migrations", f), "utf8");
       process.stdout.write(`  ${f} … `);
-      await db.query("begin");
       try {
-        await db.query(sql);
-        await db.query("insert into supabase_migrations.schema_migrations (version, name, statements) values ($1, $2, $3)", [version, rest.join("_"), [sql]]);
-        await db.query("commit");
+        await db.atomic([
+          { sql },
+          { sql: "insert into supabase_migrations.schema_migrations (version, name, statements) values ($1, $2, $3)", params: [version, rest.join("_"), [sql]] },
+        ]);
         applied++;
         console.log("ok");
       } catch (e) {
-        await db.query("rollback");
         console.log("ÉCHEC");
         throw e;
       }
@@ -213,14 +272,16 @@ async function auth() {
     disable_signup: false,
     mailer_otp_length: 6,
     mailer_otp_exp: 600,
-    mailer_subjects_magic_link: "Ton code PréviÉnergie",
-    mailer_templates_magic_link_content: template,
-    mailer_subjects_confirmation: "Ton code PréviÉnergie",
-    mailer_templates_confirmation_content: template,
   };
   // Service SMTP (Resend, Brevo…) : indispensable avant l'ouverture au public.
+  // Sur le plan gratuit, Supabase refuse de changer le modèle d'email sans
+  // SMTP : l'email par défaut contient alors un lien, que l'app accepte aussi.
   if (process.env.SMTP_HOST) {
     Object.assign(body, {
+      mailer_subjects_magic_link: "Ton code PréviÉnergie",
+      mailer_templates_magic_link_content: template,
+      mailer_subjects_confirmation: "Ton code PréviÉnergie",
+      mailer_templates_confirmation_content: template,
       smtp_host: process.env.SMTP_HOST,
       smtp_port: process.env.SMTP_PORT ?? "587",
       smtp_user: need("SMTP_USER"),
@@ -230,10 +291,10 @@ async function auth() {
       rate_limit_email_sent: 100,
     });
   } else {
-    console.log("  Pas de SMTP_HOST : l'email intégré de Supabase reste actif (quelques emails par heure seulement).");
+    console.log("  Pas de SMTP_HOST : email intégré de Supabase (quelques emails par heure, réservés aux membres de l'organisation), lien de connexion au lieu du code.");
   }
   await management("PATCH", `/projects/${REF}/config/auth`, body);
-  console.log("Authentification configurée : code à 6 chiffres, modèle d'email PréviÉnergie.");
+  console.log(process.env.SMTP_HOST ? "Authentification configurée : code à 6 chiffres, modèle d'email PréviÉnergie." : "Authentification configurée : URL du site, code à 6 chiffres (lien seul tant que le SMTP manque).");
 }
 
 // ---------------------------------------------------------------- secrets
@@ -289,8 +350,9 @@ async function cron() {
   await withDb(async (db) => {
     await db.query("create extension if not exists pg_cron");
     await db.query("create extension if not exists pg_net");
-    await db.query(`delete from vault.secrets where name = 'previenergie_cron_secret'`);
-    await db.query(`select vault.create_secret($1, 'previenergie_cron_secret', 'En-tête x-cron-secret de la fonction alertes')`, [secret]);
+    const existing = await db.query(`select id from vault.secrets where name = 'previenergie_cron_secret'`);
+    if (existing.rows.length) await db.query("select vault.update_secret($1::uuid, $2)", [existing.rows[0].id, secret]);
+    else await db.query(`select vault.create_secret($1, 'previenergie_cron_secret', 'En-tête x-cron-secret de la fonction alertes')`, [secret]);
     await db.query(`select cron.unschedule(jobid) from cron.job where jobname = 'previenergie-alertes'`);
     // Chaque heure pile : 18 h, 19 h et 21 h tombent sur un passage.
     await db.query(
@@ -311,8 +373,8 @@ async function cron() {
 async function admin(email) {
   if (!email) throw new Error("Usage : npm run deploy -- admin prenom@exemple.com");
   await withDb(async (db) => {
-    const { rowCount } = await db.query("update public.profiles set role = 'admin' where lower(email) = lower($1)", [email]);
-    if (!rowCount) throw new Error(`Aucun compte pour ${email} : connecte-toi d'abord une fois à l'application.`);
+    const { rows } = await db.query("update public.profiles set role = 'admin' where lower(email) = lower($1) returning id", [email]);
+    if (!rows.length) throw new Error(`Aucun compte pour ${email} : connecte-toi d'abord une fois à l'application.`);
     await db.query("insert into public.audit_log (action, target_type, details) values ('user.update', 'profile', $1)", [{ promoted: email, role: "admin", by: "script" }]);
   });
   console.log(`${email} est administrateur.`);
@@ -331,7 +393,7 @@ async function status() {
     const j = await db.query("select jobname, schedule, active from cron.job where jobname like 'previenergie%'").catch(() => ({ rows: [] }));
     console.log(`Tâches : ${j.rows.map((r) => `${r.jobname} (${r.schedule}${r.active ? "" : ", inactive"})`).join(", ") || "aucune"}`);
     const r = await db.query(`select status_code, created from net._http_response order by created desc limit 3`).catch(() => ({ rows: [] }));
-    if (r.rows.length) console.log("Derniers appels de la tâche :", r.rows.map((x) => `${x.status_code} à ${x.created.toISOString()}`).join(" · "));
+    if (r.rows.length) console.log("Derniers appels de la tâche :", r.rows.map((x) => `${x.status_code} à ${new Date(x.created).toISOString()}`).join(" · "));
   });
 }
 

@@ -44,7 +44,11 @@ export default function Connexion() {
     setError(null);
     const { error } = await supabase.auth.signInWithOtp({
       email: clean,
-      options: { shouldCreateUser: true, data: { source: params.get("source") ?? params.get("utm_source") ?? "" } },
+      options: {
+        shouldCreateUser: true,
+        emailRedirectTo: `${window.location.origin}/`,
+        data: { source: params.get("source") ?? params.get("utm_source") ?? "" },
+      },
     });
     setBusy(false);
     if (error) {
@@ -103,11 +107,24 @@ export default function Connexion() {
           <Button type="submit" loading={busy} className="w-full">
             Recevoir mon code
           </Button>
+          <button
+            type="button"
+            className="w-full text-center text-sm font-medium text-brand-700"
+            onClick={() => {
+              const clean = email.trim().toLowerCase();
+              if (!EMAIL_RE.test(clean)) return setError("Entre d'abord ton adresse email.");
+              setEmail(clean);
+              setError(null);
+              setStep("code");
+            }}
+          >
+            J'ai déjà un code
+          </button>
         </form>
       ) : (
         <form onSubmit={verify} className="mt-8 space-y-4" noValidate>
           <p className="text-stone-700">
-            Code envoyé à <strong>{email}</strong>. Regarde aussi dans les courriers indésirables.
+            Email envoyé à <strong>{email}</strong>. Saisis le code à 6 chiffres ou touche le lien de l'email. Regarde aussi dans les courriers indésirables.
           </p>
           <Field label="Code à 6 chiffres">
             {(id) => (

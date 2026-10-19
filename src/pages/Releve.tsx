@@ -21,7 +21,7 @@ interface MeterRead {
 }
 
 const TIPS = [
-  "Attends que l'écran affiche le crédit en kWh (touche « 1 » puis « # » sur beaucoup de compteurs).",
+  "Attends que l'écran affiche le crédit restant en kWh (fais défiler l'affichage si besoin).",
   "Cadre l'écran de près, sans reflet ni flou.",
 ];
 

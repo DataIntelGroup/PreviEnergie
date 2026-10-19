@@ -17,7 +17,7 @@ export function Gauge({ days, level, max = 14, label }: { days: number | null; l
     <div className="relative mx-auto w-full max-w-72" role="img" aria-label={label}>
       <svg viewBox="0 0 200 116" className="w-full">
         <path d="M16 100a84 84 0 0 1 168 0" fill="none" stroke="#f5f5f4" strokeWidth="18" strokeLinecap="round" />
-        <path
+        {ratio > 0 && <path
           d="M16 100a84 84 0 0 1 168 0"
           fill="none"
           stroke={COLORS[level]}
@@ -25,7 +25,7 @@ export function Gauge({ days, level, max = 14, label }: { days: number | null; l
           strokeLinecap="round"
           strokeDasharray={`${circumference * ratio} ${circumference}`}
           style={{ transition: "stroke-dasharray 0.6s ease" }}
-        />
+        />}
       </svg>
       <div className="absolute inset-x-0 bottom-0 text-center">
         <div className="tabular text-6xl leading-none font-extrabold text-stone-900">{shown}</div>
