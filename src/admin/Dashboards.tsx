@@ -42,7 +42,7 @@ export interface Dashboard {
   };
 }
 
-const PLAN_NAMES: Record<string, string> = { gratuit: "Gratuit", essentiel: "Essentiel", famille_pro: "Famille / Pro" };
+const PLAN_NAMES: Record<string, string> = { gratuit: "Gratuit", essentiel: "Essentiel", famille_pro: "Famille / Pro", entreprise: "Entreprise" };
 const KIND_NAMES: Record<string, string> = { prepaid: "Prépayé", postpaid: "Postpayé" };
 const SOURCE_NAMES: Record<string, string> = { photo: "Photo", manuel: "Saisie" };
 

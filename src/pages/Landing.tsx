@@ -31,7 +31,7 @@ const FEATURES: { icon: IconName; title: string; text: string }[] = [
   { icon: "sparkles", title: "Lecture automatique", text: "Photo de l'écran, du reçu ou du SMS de recharge : les chiffres sont lus pour toi, tu vérifies." },
   { icon: "receipt", title: "Recharges et codes gardés", text: "Wave, Orange Money, MTN MoMo, Moov Money : tout ton historique au même endroit, codes compris." },
   { icon: "chart", title: "Dépenses sous contrôle", text: "Consommation par jour, coût par jour et dépenses du mois, pour savoir combien recharger." },
-  { icon: "layers", title: "Plusieurs compteurs", text: "Maison, boutique, logement des parents : suis jusqu'à 5 compteurs, prépayés ou postpayés." },
+  { icon: "layers", title: "Plusieurs compteurs", text: "Maison, boutique, logement des parents : suis tous tes compteurs, prépayés ou postpayés. Jusqu'à 50 avec l'offre Entreprise." },
 ];
 
 const FAQ = [
@@ -317,7 +317,7 @@ export default function Landing() {
             <h2 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">Gratuit pour commencer. Sans engagement ensuite.</h2>
             <p className="mt-3 text-stone-600">Paiement mensuel par Wave, Orange Money, MTN MoMo ou Moov Money.</p>
           </div>
-          <div className="mt-12 grid gap-5 lg:grid-cols-3">
+          <div className="mt-12 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             {(plans ?? []).map((p, i) => {
               const featured = i === 1;
               return (
@@ -346,7 +346,7 @@ export default function Landing() {
                 </div>
               );
             })}
-            {plans === null && [0, 1, 2].map((i) => <div key={i} className="h-96 animate-pulse rounded-3xl bg-stone-100" />)}
+            {plans === null && [0, 1, 2, 3].map((i) => <div key={i} className="h-96 animate-pulse rounded-3xl bg-stone-100" />)}
           </div>
         </div>
       </section>
