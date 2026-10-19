@@ -56,9 +56,9 @@ export function useReveal<T extends HTMLElement>() {
   useEffect(() => {
     const root = ref.current;
     if (!root) return;
-    const items = root.querySelectorAll<HTMLElement>(".reveal");
+    const pending = () => root.querySelectorAll<HTMLElement>(".reveal:not(.is-visible)");
     if (!("IntersectionObserver" in window)) {
-      items.forEach((i) => i.classList.add("is-visible"));
+      pending().forEach((i) => i.classList.add("is-visible"));
       return;
     }
     const io = new IntersectionObserver(
@@ -72,8 +72,15 @@ export function useReveal<T extends HTMLElement>() {
       },
       { rootMargin: "0px 0px -10% 0px" },
     );
-    items.forEach((i) => io.observe(i));
-    return () => io.disconnect();
+    pending().forEach((i) => io.observe(i));
+    // Les blocs chargés plus tard (les tarifs viennent de la base) doivent
+    // aussi être suivis, sinon ils resteraient invisibles.
+    const mo = new MutationObserver(() => pending().forEach((i) => io.observe(i)));
+    mo.observe(root, { childList: true, subtree: true });
+    return () => {
+      io.disconnect();
+      mo.disconnect();
+    };
   }, []);
   return ref;
 }

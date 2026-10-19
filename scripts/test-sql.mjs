@@ -120,7 +120,7 @@ async function main() {
     await db.query("update plans set active = false where code = 'famille_pro'");
     const { rows } = await anon((q) => q("select code from plans order by sort"));
     await db.query("update plans set active = true where code = 'famille_pro'");
-    assert(rows.map((r) => r.code).join() === "gratuit,essentiel", rows.map((r) => r.code).join());
+    assert(rows.map((r) => r.code).join() === "gratuit,essentiel,entreprise", rows.map((r) => r.code).join());
     await rejects(() => anon((q) => q("update plans set price_fcfa = 0")), /42501|permission/);
   });
   await check("anon ne lit pas les réglages", () => rejects(() => anon((q) => q("select * from settings")), /42501|permission/));
