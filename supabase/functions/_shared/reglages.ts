@@ -64,7 +64,7 @@ export const DEFAULT_SETTINGS: Settings = {
     whatsapp: ["niveau_j5", "niveau_j2", "veille", "veille_rappel", "anomalie", "releve"],
     sms: ["niveau_j2", "veille"],
   },
-  trialDays: 7,
+  trialDays: 14,
   weeklySummary: { weekday: 1, time: "08:00" },
   unitCosts: { whatsapp: 30, sms: 25, email: 0.5, aiRead: 6, push: 0 },
   templates: {

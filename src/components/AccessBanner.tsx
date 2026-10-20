@@ -1,4 +1,4 @@
-// Bandeau d'essai gratuit (7 jours) et de lecture seule une fois l'essai terminé.
+// Bandeau d'essai gratuit (14 jours) et de lecture seule une fois l'essai terminé.
 import { Link } from "react-router-dom";
 import { useData } from "@/lib/data";
 import { fcfa } from "@/lib/format";

@@ -1,7 +1,7 @@
 // Mise en page de l'application. Ordinateur : barre latérale et contenu large.
 // Téléphone : en-tête compact et barre d'onglets avec le bouton « Relever ».
 import type { ReactNode } from "react";
-import { Link, NavLink, Outlet } from "react-router-dom";
+import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data";
 import { useInstall } from "@/lib/install";
@@ -46,7 +46,7 @@ function SideLink({ to, label, icon, end }: (typeof SIDE)[number]) {
       to={to}
       end={end}
       className={({ isActive }) =>
-        `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition ${
+        `flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold transition active:scale-[0.97] ${
           isActive ? "bg-brand-600 text-white shadow-md shadow-brand-600/25" : "text-stone-600 hover:bg-brand-50 hover:text-brand-800"
         }`
       }
@@ -70,7 +70,7 @@ function PlanCard() {
       {subscription.status !== "paid" ? (
         <>
           <p className="mt-1 text-xs text-white/85">
-            {subscription.status === "trial" ? `Encore ${d} jour${d > 1 ? "s" : ""}, puis dès ${Number.isFinite(from) ? from : 300} FCFA par mois.` : "Lecture seule : choisis une offre pour reprendre."}
+            {subscription.status === "trial" ? `Encore ${d} jour${d > 1 ? "s" : ""}, puis dès ${Number.isFinite(from) ? from : 1000} FCFA par mois.` : "Lecture seule : choisis une offre pour reprendre."}
           </p>
           <Link to={R.offres} className="mt-3 block rounded-xl bg-white py-2 text-center text-sm font-bold text-brand-700">Choisir une offre</Link>
         </>
@@ -93,6 +93,7 @@ function InstallLink() {
 
 export function AppLayout() {
   const { profile, signOut } = useAuth();
+  const { pathname } = useLocation();
   const staff = profile?.role === "admin" || profile?.role === "support";
   return (
     <div className="min-h-dvh bg-stone-50 lg:flex">
@@ -131,7 +132,10 @@ export function AppLayout() {
         </header>
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-5 pb-32 sm:px-6 lg:px-10 lg:pt-10 lg:pb-12">
-          <Outlet />
+          {/* Fondu à chaque changement de page : on voit qu'on a changé d'écran. */}
+          <div key={pathname} className="animate-fade-up">
+            <Outlet />
+          </div>
           <Independence className="mt-10" />
         </main>
       </div>
@@ -162,10 +166,16 @@ function Tab({ to, label, icon, end }: (typeof TABS)[number]) {
       <NavLink
         to={to}
         end={end}
-        className={({ isActive }) => `flex flex-col items-center gap-0.5 pt-2 pb-1 text-[11px] font-semibold ${isActive ? "text-brand-600" : "text-stone-500"}`}
+        className={({ isActive }) => `relative flex flex-col items-center gap-0.5 pt-2 pb-1 text-[11px] font-semibold transition active:scale-90 ${isActive ? "text-brand-600" : "text-stone-500"}`}
       >
-        <Icon name={icon} className="h-6 w-6" />
-        {label}
+        {({ isActive }) => (
+          <>
+            {/* Repère de l'onglet courant */}
+            <span aria-hidden className={`absolute top-0 h-1 rounded-b-full bg-brand-600 transition-all duration-300 ${isActive ? "w-8 opacity-100" : "w-0 opacity-0"}`} />
+            <Icon name={icon} className="h-6 w-6" />
+            {label}
+          </>
+        )}
       </NavLink>
     </li>
   );

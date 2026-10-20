@@ -76,6 +76,12 @@ function PublicHome() {
   return session ? <Navigate to={R.app} replace /> : <Landing />;
 }
 
+/** Fine barre orange en haut de l'écran à chaque changement de page. */
+function RouteProgress() {
+  const { pathname } = useLocation();
+  return <div key={pathname} className="route-progress" aria-hidden />;
+}
+
 /** Anciennes adresses (avant /app), gardées pour les liens déjà envoyés. */
 function LegacyRedirect({ to }: { to: string }) {
   const { search } = useLocation();
@@ -97,6 +103,7 @@ export default function App() {
     <BrowserRouter>
       <AuthProvider>
         <ToastProvider>
+          <RouteProgress />
           <Suspense fallback={<FullPageSpinner />}>
           <Routes>
             <Route path={R.accueilPublic} element={<PublicHome />} />
