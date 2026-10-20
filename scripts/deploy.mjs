@@ -5,6 +5,7 @@
 //   npm run deploy -- secrets             secrets des fonctions Edge
 //   npm run deploy -- functions           déploiement des fonctions Edge
 //   npm run deploy -- cron                tâche horaire des alertes (pg_cron + pg_net)
+//   npm run deploy -- netlify             construit et met en ligne l'application sur Netlify
 //   npm run deploy -- admin <email>       désigne un administrateur
 //   npm run deploy -- status              état de la base et des fonctions
 //   npm run deploy -- all                 db, auth, secrets, functions, cron
@@ -373,6 +374,103 @@ async function cron() {
   console.log("Tâche horaire « previenergie-alertes » programmée (chaque heure).");
 }
 
+// ---------------------------------------------------------------- Netlify
+// Construit l'application et l'envoie à Netlify par l'API (envoi par
+// empreintes : seuls les fichiers modifiés partent). Crée le site au premier
+// passage, puis met à jour APP_URL, les origines autorisées et l'URL du site
+// côté Supabase, pour que liens d'email, alertes et retour de paiement
+// pointent vers l'adresse publique.
+function setEnv(key, value) {
+  const file = join(ROOT, ".env.local");
+  let env = readFileSync(file, "utf8");
+  const re = new RegExp(`^${key}=.*$`, "m");
+  env = re.test(env) ? env.replace(re, `${key}=${value}`) : `${env.replace(/\n?$/, "\n")}${key}=${value}\n`;
+  writeFileSync(file, env);
+  process.env[key] = value;
+}
+
+async function netlifyApi(method, path, body, raw = false) {
+  const res = await fetch(`https://api.netlify.com/api/v1${path}`, {
+    method,
+    headers: {
+      authorization: `Bearer ${need("NETLIFY_AUTH_TOKEN")}`,
+      "content-type": raw ? "application/octet-stream" : "application/json",
+    },
+    body: raw ? body : body ? JSON.stringify(body) : undefined,
+  });
+  const text = await res.text();
+  if (!res.ok) throw new Error(`Netlify ${method} ${path} : ${res.status} ${text.slice(0, 300)}`);
+  return text ? JSON.parse(text) : null;
+}
+
+async function netlify() {
+  const { createHash } = await import("node:crypto");
+  const { readdirSync: list, statSync } = await import("node:fs");
+
+  if (!process.env.NETLIFY_SITE_ID) {
+    let site = null;
+    for (const name of ["previenergie", "previenergie-ci", `previenergie-${randomBytes(3).toString("hex")}`]) {
+      try {
+        site = await netlifyApi("POST", "/sites", { name });
+        break;
+      } catch (e) {
+        if (!String(e.message).includes("422")) throw e; // nom déjà pris : on essaie le suivant
+      }
+    }
+    if (!site) throw new Error("Impossible de créer le site Netlify");
+    setEnv("NETLIFY_SITE_ID", site.id);
+    console.log(`Site Netlify créé : ${site.ssl_url || site.url}`);
+  }
+  const site = await netlifyApi("GET", `/sites/${process.env.NETLIFY_SITE_ID}`);
+  const url = (site.ssl_url || site.url).replace(/\/$/, "");
+
+  console.log("Construction de l'application…");
+  execFileSync("npm", ["run", "build"], { cwd: ROOT, stdio: "inherit", shell: process.platform === "win32" });
+
+  const dist = join(ROOT, "dist");
+  const files = {};
+  const byHash = new Map();
+  const walk = (dir, prefix = "") => {
+    for (const name of list(dir)) {
+      const full = join(dir, name);
+      const rel = `${prefix}/${name}`;
+      if (statSync(full).isDirectory()) walk(full, rel);
+      else {
+        const sha = createHash("sha1").update(readFileSync(full)).digest("hex");
+        files[rel] = sha;
+        byHash.set(sha, full);
+      }
+    }
+  };
+  walk(dist);
+
+  const deploy = await netlifyApi("POST", `/sites/${process.env.NETLIFY_SITE_ID}/deploys`, { files });
+  const required = new Set(deploy.required ?? []);
+  let sent = 0;
+  for (const [path, sha] of Object.entries(files)) {
+    if (!required.has(sha)) continue;
+    required.delete(sha);
+    await netlifyApi("PUT", `/deploys/${deploy.id}/files${encodeURI(path)}`, readFileSync(byHash.get(sha)), true);
+    sent++;
+  }
+  console.log(`${Object.keys(files).length} fichiers, ${sent} envoyés.`);
+  for (let i = 0; i < 60; i++) {
+    const d = await netlifyApi("GET", `/deploys/${deploy.id}`);
+    if (d.state === "ready") break;
+    if (d.state === "error") throw new Error(`Déploiement Netlify en erreur : ${d.error_message ?? ""}`);
+    await new Promise((r) => setTimeout(r, 2000));
+  }
+  console.log(`En ligne : ${url}`);
+
+  if (process.env.APP_URL !== url) {
+    setEnv("APP_URL", url);
+    setEnv("APP_ORIGINS", [url, "http://localhost:5173", "http://localhost:4173"].join(","));
+    console.log("APP_URL et APP_ORIGINS mis à jour : envoi aux secrets et à l'authentification Supabase…");
+    await secrets();
+    await auth();
+  }
+}
+
 // ---------------------------------------------------------------- administrateur
 async function admin(email) {
   if (!email) throw new Error("Usage : npm run deploy -- admin prenom@exemple.com");
@@ -402,7 +500,7 @@ async function status() {
 }
 
 const [step, arg] = process.argv.slice(2);
-const steps = { purge, db: migrate, auth, secrets, functions, cron, admin: () => admin(arg), status };
+const steps = { purge, db: migrate, auth, secrets, functions, cron, netlify, admin: () => admin(arg), status };
 try {
   if (step === "all") {
     for (const s of ["db", "auth", "secrets", "functions", "cron"]) {
@@ -412,7 +510,7 @@ try {
   } else if (steps[step]) {
     await steps[step]();
   } else {
-    console.log("Étapes : purge --oui, db, auth, secrets, functions, cron, admin <email>, status, all");
+    console.log("Étapes : purge --oui, db, auth, secrets, functions, cron, netlify, admin <email>, status, all");
   }
 } catch (e) {
   console.error(`\nErreur : ${e.message}`);

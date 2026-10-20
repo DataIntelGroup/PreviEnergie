@@ -57,7 +57,7 @@ Tout se pilote depuis `.env.local` (modèle : `.env.example`, jamais versionné)
 4. `npm run deploy -- auth` : code à 6 chiffres et modèle d'email. Avec `SMTP_*` rempli, branche aussi le service d'email (indispensable avant l'ouverture : l'email intégré de Supabase n'envoie que quelques messages par heure).
 5. Renseigner les secrets disponibles (`ANTHROPIC_API_KEY`, `APP_URL`, email, CinetPay…) puis `npm run deploy -- secrets`.
 6. `npm run deploy -- functions` puis `npm run deploy -- cron` (tâche horaire via pg_cron et pg_net, secret dans Vault).
-7. Netlify : relier le dépôt, définir `VITE_SUPABASE_URL`, `VITE_SUPABASE_ANON_KEY`, `VITE_VAPID_PUBLIC_KEY` ; `netlify.toml` fait le reste. Mettre ensuite l'adresse Netlify dans `APP_URL` et `APP_ORIGINS`, puis relancer `secrets` et `auth`.
+7. Netlify : mettre `NETLIFY_AUTH_TOKEN` (User settings > Applications > Personal access tokens) dans `.env.local`, puis `npm run deploy -- netlify`. Le script crée le site au premier passage, construit l'application, l'envoie, et met à jour `APP_URL`, `APP_ORIGINS` et l'authentification Supabase avec l'adresse publique. Les règles de redirection et d'en-têtes sont dans `public/_redirects` et `public/_headers`.
 8. Se connecter une fois à l'application, puis `npm run deploy -- admin ton@email` pour devenir administrateur.
 
 `npm run deploy -- status` résume l'état : migrations, comptes, tâche horaire et ses derniers appels.
