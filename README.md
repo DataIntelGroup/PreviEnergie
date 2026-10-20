@@ -24,7 +24,7 @@ Points clés :
 
 ## Offres (grille du 2026-10-20)
 
-Pas d'offre gratuite permanente : **7 jours d'essai** à l'inscription (réglable, clé `trialDays`), puis Découverte 300 FCFA, Essentiel 1 000, Famille / Pro 2 500, Entreprise 5 000 (par mois, sans engagement). Essai terminé sans offre payée : **lecture seule**, imposée en base (`is_active_user` → `has_access`) — historique visible, plus de saisie, de lecture photo ni d'alertes. Le code d'offre `gratuit` désigne l'état « sans offre payée » (essai ou lecture seule). Prix et limites se règlent dans le back-office.
+Pas d'offre gratuite permanente : **14 jours d'essai** à l'inscription (réglable, clé `trialDays`), puis Essentiel 1 000, Famille / Pro 2 500 ou Entreprise 5 000 FCFA par mois, sans engagement. L'offre Découverte (300 FCFA) a existé quelques heures puis a été retirée (inactive, migration 0008). Essai terminé sans offre payée : **lecture seule**, imposée en base (`is_active_user` → `has_access`) : historique visible, plus de saisie, de lecture photo ni d'alertes. Le code d'offre `gratuit` désigne l'état « sans offre payée » (essai ou lecture seule). Prix et limites se règlent dans le back-office.
 
 ## V1 (2026-10-20)
 

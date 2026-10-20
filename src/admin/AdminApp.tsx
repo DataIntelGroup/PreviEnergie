@@ -90,7 +90,7 @@ export default function AdminApp() {
                   key={n.to}
                   to={n.to}
                   className={({ isActive }) =>
-                    `shrink-0 rounded-lg px-3 py-2 text-sm font-medium ${isActive ? "bg-brand-50 text-brand-700" : "text-stone-600 hover:bg-stone-100"}`
+                    `shrink-0 rounded-lg px-3 py-2 text-sm font-medium transition active:scale-95 ${isActive ? "bg-brand-50 text-brand-700" : "text-stone-600 hover:bg-stone-100"}`
                   }
                 >
                   {n.label}
