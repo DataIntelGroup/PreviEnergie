@@ -15,13 +15,16 @@
     "check": "npm run typecheck && npm test && npm run test:sql",
     "vapid": "node scripts/vapid.mjs",
     "deploy": "node --env-file=.env.local --use-env-proxy scripts/deploy.mjs",
-    "comptes:test": "node --env-file=.env.local --use-env-proxy scripts/comptes-test.mjs"
+    "comptes:test": "node --env-file=.env.local --use-env-proxy scripts/comptes-test.mjs",
+    "eval:lecture": "node scripts/eval-lecture.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.118.0",
+    "pdfjs-dist": "^6.4.299",
     "react": "^19.3.1",
     "react-dom": "^19.3.1",
-    "react-router-dom": "^7.18.4"
+    "react-router-dom": "^7.18.4",
+    "tesseract.js": "^7.0.0"
   },
   "devDependencies": {
     "@tailwindcss/vite": "^4.3.3",

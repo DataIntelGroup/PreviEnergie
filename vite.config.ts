@@ -40,7 +40,11 @@ export default defineConfig({
           { src: "maskable-icon-512x512.png", sizes: "512x512", type: "image/png", purpose: "maskable" },
         ],
       },
-      injectManifest: { globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"] },
+      injectManifest: {
+        globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
+        // Lecteur de PDF (430 Ko + son worker de 1,2 Mo) : chargé seulement quand on importe un PDF.
+        globIgnores: ["**/pdf-text-*.js", "**/pdf.worker*"],
+      },
       devOptions: { enabled: false },
     }),
   ],
