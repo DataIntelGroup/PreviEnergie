@@ -1,14 +1,21 @@
 // Tâche horaire : expiration des offres, recalcul des prévisions, envoi des
-// alertes. Appelée chaque heure par pg_cron avec l'en-tête x-cron-secret.
+// alertes et du bilan hebdomadaire. Appelée chaque heure par pg_cron avec
+// l'en-tête x-cron-secret. Chaque compteur a un ou plusieurs destinataires :
+// son propriétaire et les membres d'un partage accepté (BF-15).
 import { planAlerts, type SentAlert } from "../_shared/alertes.ts";
+import { weeklySummary } from "../_shared/bilan.ts";
 import { appLink, configuredChannels, type Recipient, send } from "../_shared/canaux.ts";
+import { verifyAndApply } from "../_shared/cinetpay.ts";
 import { forecastFor, forecastRow, loadHistory, loadSettings, type MeterRow } from "../_shared/donnees.ts";
 import { ALERT_LABELS, type AlertType, type Channel } from "../_shared/reglages.ts";
-import { verifyAndApply } from "../_shared/cinetpay.ts";
 import { adminClient, env, handler, HttpError, json, requireEnv, safeEqual } from "../_shared/serveur.ts";
 import { DAY_MS } from "../_shared/temps.ts";
 
+const PROFILE_COLUMNS =
+  "id, first_name, email, phone, channels, whatsapp_consent_at, sms_consent_at, quiet_start, quiet_end, suspended, plan_code, plan_expires_at, weekly_summary";
+
 interface ProfileRow {
+  id: string;
   first_name: string | null;
   email: string | null;
   phone: string | null;
@@ -20,9 +27,19 @@ interface ProfileRow {
   suspended: boolean;
   plan_code: string;
   plan_expires_at: string | null;
+  weekly_summary: boolean;
 }
 
 type MeterWithProfile = MeterRow & { profiles: ProfileRow };
+
+interface Job {
+  meter: MeterWithProfile;
+  to: ProfileRow;
+  type: AlertType;
+  cycleKey: string;
+  channel: Channel;
+  message: string;
+}
 
 const TITLES: Record<AlertType, string> = {
   ...ALERT_LABELS,
@@ -30,6 +47,7 @@ const TITLES: Record<AlertType, string> = {
   niveau_j2: "Plus que 2 jours de courant",
   veille: "Coupure possible cette nuit",
   veille_rappel: "Rappel : recharge ce soir",
+  bilan: "Ta semaine en un coup d'œil",
 };
 
 function effectivePlan(p: ProfileRow, now: Date): string {
@@ -85,9 +103,7 @@ Deno.serve(handler(async (req) => {
   for (let from = 0; ; from += 1000) {
     const { data, error } = await db
       .from("meters")
-      .select(
-        "id, user_id, name, kind, created_at, profiles!inner(first_name, email, phone, channels, whatsapp_consent_at, sms_consent_at, quiet_start, quiet_end, suspended, plan_code, plan_expires_at)",
-      )
+      .select(`id, user_id, name, kind, created_at, profiles!inner(${PROFILE_COLUMNS})`)
       .eq("profiles.suspended", false)
       .not("profiles.phone", "is", null)
       .order("created_at")
@@ -100,42 +116,64 @@ Deno.serve(handler(async (req) => {
   const ids = meters.map((m) => m.id);
   const { readings, recharges } = await loadHistory(db, ids, now);
 
-  // Alertes déjà traitées (45 derniers jours suffisent : un cycle dure moins).
+  // Membres des partages acceptés qui veulent les alertes.
+  const members = new Map<string, ProfileRow[]>();
+  for (let i = 0; i < ids.length; i += 100) {
+    const { data, error } = await db
+      .from("meter_shares")
+      .select(`meter_id, member:profiles!meter_shares_member_id_fkey(${PROFILE_COLUMNS})`)
+      .in("meter_id", ids.slice(i, i + 100))
+      .eq("status", "accepted")
+      .eq("alerts", true);
+    if (error) throw error;
+    for (const s of (data ?? []) as unknown as { meter_id: string; member: ProfileRow | null }[]) {
+      if (!s.member || s.member.suspended || !s.member.phone) continue;
+      members.set(s.meter_id, [...(members.get(s.meter_id) ?? []), s.member]);
+    }
+  }
+
+  // Alertes déjà traitées, par compteur et destinataire (45 jours suffisent : un cycle dure moins).
   const sent = new Map<string, SentAlert[]>();
   for (let i = 0; i < ids.length; i += 100) {
     const { data, error } = await db
       .from("alerts")
-      .select("meter_id, type, cycle_key")
+      .select("meter_id, user_id, type, cycle_key")
       .in("meter_id", ids.slice(i, i + 100))
       .gte("sent_at", new Date(now.getTime() - 45 * DAY_MS).toISOString());
     if (error) throw error;
     for (const a of data ?? []) {
-      const list = sent.get(a.meter_id) ?? [];
-      list.push({ type: a.type as AlertType, cycleKey: a.cycle_key });
-      sent.set(a.meter_id, list);
+      const key = `${a.meter_id}:${a.user_id}`;
+      sent.set(key, [...(sent.get(key) ?? []), { type: a.type as AlertType, cycleKey: a.cycle_key }]);
     }
   }
 
   const forecastRows = [];
-  const jobs: { meter: MeterWithProfile; type: AlertType; cycleKey: string; channel: Channel; message: string }[] = [];
+  const jobs: Job[] = [];
 
   for (const meter of meters) {
-    const f = forecastFor(meter, readings.get(meter.id) ?? [], recharges.get(meter.id) ?? [], settings, now);
+    const meterRecharges = recharges.get(meter.id) ?? [];
+    const f = forecastFor(meter, readings.get(meter.id) ?? [], meterRecharges, settings, now);
     forecastRows.push(forecastRow(meter, f, now));
-    const p = meter.profiles;
-    const planned = planAlerts({
-      now,
-      meter: { id: meter.id, name: meter.name, kind: meter.kind, createdAt: meter.created_at },
-      firstName: p.first_name ?? "",
-      forecast: f,
-      settings,
-      quiet: { start: p.quiet_start, end: p.quiet_end },
-      userChannels: userChannels(p),
-      planChannels: (planChannels.get(effectivePlan(p, now)) ?? ["push", "email"]).filter((c) => available.includes(c)),
-      sent: sent.get(meter.id) ?? [],
-    });
-    for (const a of planned) {
-      for (const channel of a.channels) jobs.push({ meter, type: a.type, cycleKey: a.cycleKey, channel, message: a.message });
+    const weekly = weeklySummary(f.segments, meterRecharges, now);
+    for (const to of [meter.profiles, ...(members.get(meter.id) ?? [])]) {
+      const planned = planAlerts({
+        now,
+        meter: { id: meter.id, name: meter.name, kind: meter.kind, createdAt: meter.created_at },
+        firstName: to.first_name ?? "",
+        forecast: f,
+        settings,
+        quiet: { start: to.quiet_start, end: to.quiet_end },
+        userChannels: userChannels(to),
+        planChannels: (planChannels.get(effectivePlan(to, now)) ?? ["push", "email"]).filter((c) => available.includes(c)),
+        sent: sent.get(`${meter.id}:${to.id}`) ?? [],
+        weekly,
+        weeklyEnabled: to.weekly_summary,
+      });
+      for (const a of planned) {
+        // La relance de relevé ne concerne que celui qui peut saisir : le propriétaire.
+        if (a.type === "releve" && to.id !== meter.user_id) continue;
+        for (const channel of a.channels) jobs.push({ meter, to, type: a.type, cycleKey: a.cycleKey, channel, message: a.message });
+      }
     }
   }
 
@@ -145,7 +183,7 @@ Deno.serve(handler(async (req) => {
   }
 
   // Abonnements push des destinataires concernés.
-  const pushUsers = [...new Set(jobs.filter((j) => j.channel === "push").map((j) => j.meter.user_id))];
+  const pushUsers = [...new Set(jobs.filter((j) => j.channel === "push").map((j) => j.to.id))];
   const subs = new Map<string, Recipient["push"]>();
   for (let i = 0; i < pushUsers.length; i += 100) {
     const { data, error } = await db
@@ -158,7 +196,7 @@ Deno.serve(handler(async (req) => {
 
   // Sans appareil abonné, pas d'envoi push : réserver la ligne la marquerait
   // « non délivrée » et l'alerte ne repartirait plus une fois l'appareil abonné.
-  const sendable = jobs.filter((j) => j.channel !== "push" || subs.has(j.meter.user_id));
+  const sendable = jobs.filter((j) => j.channel !== "push" || subs.has(j.to.id));
 
   let delivered = 0;
   let failed = 0;
@@ -170,7 +208,7 @@ Deno.serve(handler(async (req) => {
       .from("alerts")
       .upsert(
         {
-          user_id: job.meter.user_id,
+          user_id: job.to.id,
           meter_id: job.meter.id,
           type: job.type,
           channel: job.channel,
@@ -180,16 +218,15 @@ Deno.serve(handler(async (req) => {
           message: job.message,
           sent_at: now.toISOString(),
         },
-        { onConflict: "meter_id,type,cycle_key,channel", ignoreDuplicates: true },
+        { onConflict: "meter_id,user_id,type,cycle_key,channel", ignoreDuplicates: true },
       )
       .select("id");
     if (claim.error) throw claim.error;
     if (!claim.data?.length) continue; // déjà pris par une autre exécution
 
-    const p = job.meter.profiles;
     const result = await send(
       job.channel,
-      { email: p.email, phone: p.phone, push: subs.get(job.meter.user_id) ?? [] },
+      { email: job.to.email, phone: job.to.phone, push: subs.get(job.to.id) ?? [] },
       { title: TITLES[job.type], body: job.message, url: appLink(`/app?compteur=${job.meter.id}`), tag: `${job.meter.id}:${job.type}` },
     );
     for (const id of result.gonePush ?? []) gone.add(id);
@@ -208,6 +245,7 @@ Deno.serve(handler(async (req) => {
     expiredPlans: expired.data,
     paymentsChecked,
     meters: meters.length,
+    recipients: meters.length + [...members.values()].reduce((n, l) => n + l.length, 0),
     channels: available,
     planned: sendable.length,
     delivered,

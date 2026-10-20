@@ -22,6 +22,12 @@ Points clés :
 - Les canaux payants (WhatsApp, SMS) ne sont envoyés qu'aux offres qui les incluent, avec consentement enregistré.
 - Un canal sans secret configuré est simplement ignoré : l'application fonctionne avec seulement les notifications push et l'email.
 
+## V1 (2026-10-20)
+
+- **Partage de compteur (BF-15)** : le propriétaire invite par email (5 personnes au plus), en « lecteur » ou « contributeur ». L'invité accepte depuis son compte ; il reçoit les alertes du compteur s'il le souhaite. Règles d'accès : `can_view_meter` / `can_edit_meter` (migration 0006).
+- **Facture postpayée (BF-14)** : l'abonné enregistre sa facture CIE (photo lue par l'IA ou saisie). On en tire la période (bimestrielle en général), la part fixe (prime fixe et taxes) et le prix réel du kWh, TVA comprise ; l'estimation suivante combine le nouvel index de la facture et les relevés (`_shared/facture.ts`). Aucun barème CIE n'est codé.
+- **Bilan hebdomadaire (BF-21)** : chaque lundi à 8 h par défaut (réglable), consommation des 7 derniers jours, évolution et recharges (`_shared/bilan.ts`). Désactivable par l'abonné.
+
 ## Commandes
 
 ```bash

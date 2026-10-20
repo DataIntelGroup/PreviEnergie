@@ -1,17 +1,21 @@
 // Tableau de bord (BF-11) : jours restants, date probable de coupure, moyenne
 // et coût par jour, dernier relevé ; phase d'apprentissage (BF-10).
+import { weeklySummary } from "@shared/bilan.ts";
+import { estimateBill } from "@shared/facture.ts";
 import { dailyConsumption, gaugeLevel, type GaugeLevel } from "@shared/prevision.ts";
 import { TIME_ZONE } from "@shared/temps.ts";
 import { useEffect, useMemo, useState } from "react";
 import { Link, Navigate, useSearchParams } from "react-router-dom";
 import { BarChart } from "@/components/BarChart";
 import { CutoffQuestion } from "@/components/CutoffQuestion";
+import { BillHero, toBill, WeeklyCard } from "@/components/Facture";
 import { Gauge } from "@/components/Gauge";
 import { Icon, type IconName } from "@/components/icons";
 import { MeterPicker } from "@/components/MeterPicker";
+import { Invitations } from "@/components/Partage";
 import { Card, Notice } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { useData, useForecast } from "@/lib/data";
+import { toEngine, useData, useForecast } from "@/lib/data";
 import { fcfa, fmtAgo, fmtDate, fmtDateLong, fmtDateTime, fmtTime, kwh, num } from "@/lib/format";
 import { pushState } from "@/lib/push";
 import { R, withQuery } from "@/lib/routes";
@@ -41,7 +45,7 @@ function Stat({ icon, label, value, sub }: { icon: IconName; label: string; valu
 
 export default function Accueil() {
   const { profile } = useAuth();
-  const { meters, selectedMeter, selectMeter, settings, error } = useData();
+  const { meters, selectedMeter, selectMeter, settings, error, access } = useData();
   const [params] = useSearchParams();
   const { forecast, history, loading } = useForecast(selectedMeter);
   const [push, setPush] = useState<string | null>(null);
@@ -83,6 +87,15 @@ export default function Accueil() {
     return items.sort((a, b) => b.at.localeCompare(a.at)).slice(0, 5);
   }, [history]);
 
+  const weekly = useMemo(
+    () => (forecast ? weeklySummary(forecast.segments, toEngine(history).recharges, new Date()) : null),
+    [forecast, history],
+  );
+  const billEstimate = useMemo(() => {
+    if (selectedMeter?.kind !== "postpaid" || !history) return null;
+    return estimateBill(history.bills.map(toBill), toEngine(history).readings, forecast?.avgKwhDay ?? null, new Date());
+  }, [selectedMeter?.kind, history, forecast?.avgKwhDay]);
+
   if (meters.length === 0) return <Navigate to={withQuery(R.compteurs, { premier: 1 })} replace />;
   if (!selectedMeter || !profile) return null;
 
@@ -92,6 +105,10 @@ export default function Accueil() {
   const last = forecast?.lastReading;
   const askKey = forecast ? `${meter.id}:${forecast.cycleKey}` : "";
   const prepaid = meter.kind === "prepaid";
+  // Postpayé avec facture : le vrai prix du kWh, taxes comprises, plutôt que le prix par défaut.
+  const priceKwh = billEstimate?.priceKwh ?? forecast?.priceKwh ?? settings.defaultPriceKwh;
+  const canEdit = access(meter) !== "lecteur";
+  const shared = access(meter) !== "proprietaire";
   const progress = forecast
     ? Math.min(1, (Math.min(forecast.learning.readings, 3) / 3) * 0.5 + Math.min(forecast.learning.spanDays / 1.75, 1) * 0.5)
     : 0;
@@ -104,7 +121,7 @@ export default function Accueil() {
           <p className="text-sm font-medium text-stone-500 first-letter:uppercase">{today.format(new Date())}</p>
           <h1 className="mt-1 text-2xl font-extrabold tracking-tight text-stone-900 sm:text-3xl">Bonjour {profile.first_name} 👋</h1>
         </div>
-        <div className="hidden gap-2 sm:flex">
+        <div className={`hidden gap-2 ${canEdit ? "sm:flex" : ""}`}>
           <Link to={withQuery(R.releve, { compteur: meter.id })} className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-sm font-bold text-white shadow-lg shadow-brand-600/25 hover:bg-brand-700">
             <Icon name="camera" className="h-4 w-4" /> Nouveau relevé
           </Link>
@@ -116,8 +133,14 @@ export default function Accueil() {
         </div>
       </div>
 
+      <Invitations />
       <MeterPicker />
       {error && <Notice tone="error">{error}</Notice>}
+      {shared && (
+        <Notice>
+          Compteur partagé avec toi{canEdit ? " : tu peux ajouter des relevés et des recharges." : ", en lecture seule."}
+        </Notice>
+      )}
 
       <div className="grid gap-6 lg:grid-cols-3">
         {/* Carte vedette */}
@@ -174,28 +197,26 @@ export default function Accueil() {
                 ) : (
                   <p className="text-sm text-white/85">Aucune consommation mesurée sur la période.</p>
                 )}
-                <div className="mt-5 flex gap-2 sm:hidden">
+                <div className={`mt-5 gap-2 sm:hidden ${canEdit ? "flex" : "hidden"}`}>
                   <Link to={withQuery(R.releve, { compteur: meter.id })} className="flex-1 rounded-xl bg-white py-3 text-center text-sm font-bold text-brand-700">Relever</Link>
                   <Link to={withQuery(R.recharge, { compteur: meter.id })} className="flex-1 rounded-xl bg-white/20 py-3 text-center text-sm font-bold text-white ring-1 ring-white/40">Recharge</Link>
                 </div>
               </div>
             </div>
           ) : (
-            <div className="relative mt-8">
-              <p className="text-sm text-white/80">Estimation de ta prochaine facture (30 jours)</p>
-              <p className="tabular mt-2 text-5xl font-extrabold">{learning ? "–" : fcfa(forecast?.monthlyEstimateFcfa ?? null)}</p>
-              <p className="mt-3 text-sm text-white/85">
-                {learning ? "Encore quelques relevés d'index pour estimer ta facture." : "D'après ta consommation récente et le prix moyen du kWh."}
-              </p>
-              <Link to={withQuery(R.releve, { compteur: meter.id })} className="mt-5 inline-block rounded-xl bg-white px-5 py-3 text-sm font-bold text-brand-700 sm:hidden">Relever l'index</Link>
-            </div>
+            <BillHero estimate={billEstimate} monthly={forecast?.monthlyEstimateFcfa ?? null} learning={learning} canEdit={canEdit} />
           )}
         </section>
 
         {/* Chiffres clés */}
         <div className="grid grid-cols-2 gap-4 lg:grid-cols-1 lg:grid-rows-4 xl:grid-cols-2 xl:grid-rows-2">
           <Stat icon="trend" label="Moyenne par jour" value={kwh(forecast?.avgKwhDay ?? null)} />
-          <Stat icon="wallet" label="Coût par jour" value={fcfa(forecast?.costPerDay ?? null)} sub={forecast ? `${num(forecast.priceKwh, 0)} FCFA / kWh` : undefined} />
+          <Stat
+            icon="wallet"
+            label="Coût par jour"
+            value={fcfa(forecast?.avgKwhDay != null ? forecast.avgKwhDay * priceKwh : null)}
+            sub={forecast ? `${num(priceKwh, 0)} FCFA / kWh${billEstimate ? ", d'après ta facture" : ""}` : undefined}
+          />
           {prepaid ? <Stat icon="bolt" label="Crédit estimé" value={kwh(forecast?.balanceKwh ?? null)} /> : <Stat icon="bolt" label="Dernier index" value={last ? kwh(last.value) : "–"} />}
           <Stat icon="clock" label="Dernier relevé" value={last ? fmtAgo(last.takenAt) : "aucun"} sub={last && prepaid ? kwh(last.value) : undefined} />
         </div>
@@ -236,6 +257,8 @@ export default function Accueil() {
           </div>
           <BarChart bars={bars} format={(v) => kwh(v)} emptyText="Les barres apparaîtront après deux relevés espacés de quelques heures." />
         </Card>
+        <div className="space-y-6">
+        <WeeklyCard weekly={weekly} />
         <Card className="p-5">
           <h2 className="mb-3 font-bold">Activité récente</h2>
           {recent.length === 0 ? (
@@ -256,6 +279,7 @@ export default function Accueil() {
             </ul>
           )}
         </Card>
+        </div>
       </div>
     </div>
   );

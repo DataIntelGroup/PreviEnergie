@@ -1,6 +1,8 @@
 // Compteurs de l'utilisateur, en nombre limité par l'offre (BF-04).
 import { type FormEvent, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { Icon } from "@/components/icons";
+import { Invitations, SharedWithMe, ShareManager } from "@/components/Partage";
 import { Button, Card, Field, Input, Notice, PageTitle, Select, Sheet, useToast } from "@/components/ui";
 import { useData } from "@/lib/data";
 import { errorMessage, supabase } from "@/lib/supabase";
@@ -62,17 +64,20 @@ function MeterForm({ meter, onDone }: { meter?: Meter; onDone: (m: Meter) => voi
 }
 
 export default function Compteurs() {
-  const { meters, currentPlan, refreshMeters, selectMeter } = useData();
+  const { ownedMeters, shares, currentPlan, refreshMeters, selectMeter } = useData();
   const [params] = useSearchParams();
   const first = params.get("premier") === "1";
   const navigate = useNavigate();
   const toast = useToast();
-  const [adding, setAdding] = useState(first && meters.length === 0);
+  const [adding, setAdding] = useState(first && ownedMeters.length === 0);
   const [editing, setEditing] = useState<Meter | null>(null);
   const [deleting, setDeleting] = useState<Meter | null>(null);
+  const [sharing, setSharing] = useState<Meter | null>(null);
   const [busy, setBusy] = useState(false);
   const limit = currentPlan?.max_meters ?? 1;
-  const full = meters.length >= limit;
+  // Seuls mes compteurs comptent dans la limite ; ceux qu'on me partage non.
+  const full = ownedMeters.length >= limit;
+  const shareCount = (id: string) => shares.filter((s) => s.meter_id === id).length;
 
   async function remove(m: Meter) {
     setBusy(true);
@@ -88,26 +93,35 @@ export default function Compteurs() {
     <div>
       <PageTitle action={!full && <Button variant="secondary" onClick={() => setAdding(true)}>Ajouter</Button>}>Mes compteurs</PageTitle>
 
-      {meters.length === 0 && !adding && (
+      <Invitations />
+
+      {ownedMeters.length === 0 && !adding && (
         <Card className="text-center">
           <p className="text-stone-700">Ajoute ton premier compteur pour commencer.</p>
           <Button className="mt-4 w-full" onClick={() => setAdding(true)}>Ajouter un compteur</Button>
         </Card>
       )}
 
-      <ul className="grid gap-3 sm:grid-cols-2">
-        {meters.map((m) => (
+      <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+        {ownedMeters.map((m) => (
           <li key={m.id}>
-            <Card className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="truncate font-semibold text-stone-900">{m.name}</p>
-                <p className="text-sm text-stone-500">
-                  {KIND_LABEL[m.kind]}
-                  {m.number ? ` · n° ${m.number}` : ""}
-                </p>
+            <Card className="p-4">
+              <div className="flex items-start gap-3">
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-brand-50 text-brand-700"><Icon name="meter" className="h-5 w-5" /></span>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate font-semibold text-stone-900">{m.name}</p>
+                  <p className="text-sm text-stone-500">
+                    {KIND_LABEL[m.kind]}
+                    {m.number ? ` · n° ${m.number}` : ""}
+                    {shareCount(m.id) > 0 ? ` · partagé avec ${shareCount(m.id)}` : ""}
+                  </p>
+                </div>
               </div>
-              <div className="flex shrink-0 gap-1">
-                <button className="rounded-lg px-3 py-2 text-sm font-medium text-brand-700 hover:bg-brand-50" onClick={() => setEditing(m)}>Modifier</button>
+              <div className="mt-3 flex flex-wrap gap-1">
+                <button className="inline-flex items-center gap-1.5 rounded-lg bg-brand-50 px-3 py-2 text-sm font-semibold text-brand-800 hover:bg-brand-100" onClick={() => setSharing(m)}>
+                  <Icon name="users" className="h-4 w-4" /> Partager
+                </button>
+                <button className="rounded-lg px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100" onClick={() => setEditing(m)}>Modifier</button>
                 <button className="rounded-lg px-3 py-2 text-sm font-medium text-red-600 hover:bg-red-50" onClick={() => setDeleting(m)}>Supprimer</button>
               </div>
             </Card>
@@ -116,7 +130,7 @@ export default function Compteurs() {
       </ul>
 
       <p className="mt-4 text-sm text-stone-500">
-        Offre {currentPlan?.name ?? "Gratuit"} : {meters.length} / {limit} compteur{limit > 1 ? "s" : ""}.
+        Offre {currentPlan?.name ?? "Gratuit"} : {ownedMeters.length} / {limit} compteur{limit > 1 ? "s" : ""}.
         {full && (
           <>
             {" "}
@@ -125,6 +139,11 @@ export default function Compteurs() {
         )}
       </p>
 
+      <div className="mt-8"><SharedWithMe /></div>
+
+      <Sheet open={!!sharing} onClose={() => setSharing(null)} title={sharing ? `Partager « ${sharing.name} »` : ""}>
+        {sharing && <ShareManager meter={sharing} />}
+      </Sheet>
       <Sheet open={adding} onClose={() => setAdding(false)} title="Nouveau compteur">
         <MeterForm
           onDone={async (m) => {

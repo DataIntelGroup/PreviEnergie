@@ -18,7 +18,7 @@ export function PhotoCapture<T>({
   onRead,
   tips,
 }: {
-  kind: "compteur" | "recu";
+  kind: "compteur" | "recu" | "facture";
   meterKind: "prepaid" | "postpaid";
   label: string;
   tips: string[];

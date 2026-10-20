@@ -6,19 +6,22 @@ import { localParts } from "@shared/temps.ts";
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { BarChart } from "@/components/BarChart";
+import { BillsSection } from "@/components/Factures";
 import { MeterPicker } from "@/components/MeterPicker";
 import { Button, Card, Notice, PageTitle, Sheet, useToast } from "@/components/ui";
+import { useAuth } from "@/lib/auth";
 import { useData, useForecast } from "@/lib/data";
 import { fcfa, fmtDate, fmtDateTime, kwh } from "@/lib/format";
 import { errorMessage, supabase } from "@/lib/supabase";
 import { R, withQuery } from "@/lib/routes";
 
 type Item =
-  | { kind: "releve"; id: string; at: string; value: number; source: string }
-  | { kind: "recharge"; id: string; at: string; kwh: number; amount: number; code: string | null; method: string | null };
+  | { kind: "releve"; id: string; by: string; at: string; value: number; source: string }
+  | { kind: "recharge"; id: string; by: string; at: string; kwh: number; amount: number; code: string | null; method: string | null };
 
 export default function Historique() {
-  const { selectedMeter, currentPlan, afterChange } = useData();
+  const { profile } = useAuth();
+  const { selectedMeter, currentPlan, afterChange, access } = useData();
   const { forecast, history } = useForecast(selectedMeter);
   const toast = useToast();
   const [days, setDays] = useState<14 | 30>(14);
@@ -43,9 +46,9 @@ export default function Historique() {
   const items = useMemo<Item[]>(() => {
     const since = limitDays ? Date.now() - limitDays * 86_400_000 : 0;
     const list: Item[] = [
-      ...(history?.readings ?? []).map((r) => ({ kind: "releve" as const, id: r.id, at: r.taken_at, value: r.value, source: r.source })),
+      ...(history?.readings ?? []).map((r) => ({ kind: "releve" as const, id: r.id, by: r.user_id, at: r.taken_at, value: r.value, source: r.source })),
       ...(history?.recharges ?? []).map((r) => ({
-        kind: "recharge" as const, id: r.id, at: r.purchased_at, kwh: r.kwh, amount: r.amount_fcfa, code: r.code, method: r.payment_method,
+        kind: "recharge" as const, id: r.id, by: r.user_id, at: r.purchased_at, kwh: r.kwh, amount: r.amount_fcfa, code: r.code, method: r.payment_method,
       })),
     ];
     return list.filter((i) => new Date(i.at).getTime() >= since).sort((a, b) => b.at.localeCompare(a.at));
@@ -102,6 +105,16 @@ export default function Historique() {
       </div>
       </div>
 
+      {selectedMeter.kind === "postpaid" && (
+        <BillsSection
+          meter={selectedMeter}
+          bills={history?.bills ?? []}
+          canEdit={access(selectedMeter) !== "lecteur"}
+          canDelete={(b) => b.user_id === profile?.id || access(selectedMeter) === "proprietaire"}
+          onChange={() => afterChange(selectedMeter.id)}
+        />
+      )}
+
       <div>
         <h2 className="mb-2 font-semibold">Relevés et recharges</h2>
         {items.length === 0 ? (
@@ -128,11 +141,11 @@ export default function Historique() {
                     {i.kind === "recharge" && i.code ? ` · code ${i.code}` : ""}
                   </p>
                 </div>
-                <button onClick={() => setDeleting(i)} className="shrink-0 rounded-lg p-2 text-stone-400 hover:bg-red-50 hover:text-red-600" aria-label="Supprimer">
+                {(i.by === profile?.id || access(selectedMeter) === "proprietaire") && <button onClick={() => setDeleting(i)} className="shrink-0 rounded-lg p-2 text-stone-400 hover:bg-red-50 hover:text-red-600" aria-label="Supprimer">
                   <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden>
                     <path d="M3 6h18M8 6V4h8v2m-9 0 1 14h8l1-14" />
                   </svg>
-                </button>
+                </button>}
               </li>
             ))}
           </ul>

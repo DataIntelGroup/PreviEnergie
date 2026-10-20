@@ -21,6 +21,7 @@ export interface Profile {
   sms_consent_at: string | null;
   quiet_start: string;
   quiet_end: string;
+  weekly_summary: boolean;
   created_at: string;
 }
 
@@ -48,6 +49,7 @@ export interface Meter {
 export interface ReadingRow {
   id: string;
   meter_id: string;
+  user_id: string;
   taken_at: string;
   value: number;
   source: "photo" | "manuel";
@@ -58,6 +60,7 @@ export interface ReadingRow {
 export interface RechargeRow {
   id: string;
   meter_id: string;
+  user_id: string;
   purchased_at: string;
   kwh: number;
   amount_fcfa: number;
@@ -88,6 +91,39 @@ export interface PaymentRow {
   period_end: string | null;
   created_at: string;
 }
+
+/** Partage d'un compteur (BF-15). */
+export interface ShareRow {
+  id: string;
+  meter_id: string;
+  owner_id: string;
+  owner_name: string;
+  email: string;
+  member_id: string | null;
+  role: "lecteur" | "contributeur";
+  alerts: boolean;
+  status: "pending" | "accepted";
+  created_at: string;
+}
+
+/** Facture postpayée (BF-14). */
+export interface BillRow {
+  id: string;
+  meter_id: string;
+  user_id: string;
+  period_start: string;
+  period_end: string;
+  index_start: number | null;
+  index_end: number | null;
+  kwh: number;
+  amount_fcfa: number;
+  fixed_fcfa: number | null;
+  due_date: string | null;
+  source: "photo" | "manuel";
+  created_at: string;
+}
+
+export type MeterAccess = "proprietaire" | "contributeur" | "lecteur";
 
 export function isProfileComplete(p: Profile | null): boolean {
   return !!p && !!p.first_name && !!p.last_name && !!p.phone;

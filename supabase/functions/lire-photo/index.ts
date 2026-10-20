@@ -6,7 +6,7 @@ import { adminClient, env, handler, HttpError, json, readJson, requireEnv, requi
 import { loadSettings } from "../_shared/donnees.ts";
 import { PAYMENT_METHODS } from "../_shared/validation.ts";
 
-type Kind = "compteur" | "recu";
+type Kind = "compteur" | "recu" | "facture";
 
 interface Body {
   kind?: Kind;
@@ -50,11 +50,43 @@ const RECEIPT_SCHEMA = {
   },
 };
 
+// Facture CIE basse tension (postpayé, période de deux mois en général).
+const BILL_SCHEMA = {
+  type: "object",
+  additionalProperties: false,
+  required: ["lisible", "periode_debut", "periode_fin", "index_ancien", "index_nouveau", "kwh", "montant_total_fcfa", "prime_fixe_ttc_fcfa", "autres_taxes_fcfa", "date_limite", "confiance", "remarque"],
+  properties: {
+    lisible: { type: "boolean" },
+    periode_debut: nullable({ type: "string", format: "date" }),
+    periode_fin: nullable({ type: "string", format: "date" }),
+    index_ancien: nullable({ type: "number" }),
+    index_nouveau: nullable({ type: "number" }),
+    kwh: nullable({ type: "number" }),
+    montant_total_fcfa: nullable({ type: "number" }),
+    prime_fixe_ttc_fcfa: nullable({ type: "number" }),
+    autres_taxes_fcfa: nullable({ type: "number" }),
+    date_limite: nullable({ type: "string", format: "date" }),
+    confiance: { type: "number" },
+    remarque: { type: "string" },
+  },
+};
+
 const SYSTEM = `Tu lis des photos envoyées par des abonnés de la CIE (électricité, Côte d'Ivoire) dans l'application PréviÉnergie.
 Tu extrais uniquement ce qui est visible : n'invente jamais un chiffre. Si la photo est floue, coupée ou ne montre pas ce qui est demandé, mets lisible à false et explique en une phrase dans remarque, en français, en tutoyant (par exemple « Rapproche-toi de l'écran »).
 confiance va de 0 à 1 et reflète ta certitude sur la valeur principale.`;
 
 function prompt(kind: Kind, meterKind: string): string {
+  if (kind === "facture") {
+    return `Photo d'une facture d'électricité CIE basse tension (postpayé). Extrais :
+- periode_debut et periode_fin : la « Consommation du … au … », au format AAAA-MM-JJ ;
+- index_ancien et index_nouveau : colonnes ANCIEN et NOUVEAU du relevé compteur ;
+- kwh : la consommation facturée en kWh (colonne DIFFERENCE ou CONSOMMATION ENREGISTREE) ;
+- montant_total_fcfa : le TOTAL FACTURE ou MONTANT TOTAL A REGLER, sans les impayés antérieurs ;
+- prime_fixe_ttc_fcfa : le montant TTC de la ligne « Prime fixe » ;
+- autres_taxes_fcfa : la somme des « Autres taxes » (électrification rurale, enlèvement des ordures ménagères, redevance RTI, timbre) ;
+- date_limite : la date limite de paiement.
+N'extrais ni nom, ni adresse, ni numéro d'abonné.`;
+  }
   if (kind === "compteur") {
     return meterKind === "postpaid"
       ? `Photo de l'écran d'un compteur postpayé. Donne l'index cumulé en kWh dans valeur (nature index_kwh). Ignore les chiffres rouges après la virgule s'il y en a, et les codes d'erreur.`
@@ -66,7 +98,7 @@ function prompt(kind: Kind, meterKind: string): string {
 Deno.serve(handler(async (req) => {
   const user = await requireUser(req);
   const body = await readJson<Body>(req);
-  const kind: Kind = body.kind === "recu" ? "recu" : "compteur";
+  const kind: Kind = body.kind === "recu" || body.kind === "facture" ? body.kind : "compteur";
   const mediaType = body.mediaType ?? "image/jpeg";
   if (!body.image || !["image/jpeg", "image/png", "image/webp"].includes(mediaType)) {
     throw new HttpError(400, "Image manquante ou format non pris en charge");
@@ -100,7 +132,7 @@ Deno.serve(handler(async (req) => {
       fallbacks: "default",
       output_config: {
         effort: "low",
-        format: { type: "json_schema", schema: kind === "compteur" ? METER_SCHEMA : RECEIPT_SCHEMA },
+        format: { type: "json_schema", schema: kind === "compteur" ? METER_SCHEMA : kind === "facture" ? BILL_SCHEMA : RECEIPT_SCHEMA },
       },
       system: SYSTEM,
       messages: [{

@@ -28,7 +28,7 @@ const TIPS = [
 
 export default function Releve() {
   const { profile } = useAuth();
-  const { meters, selectedMeter, selectMeter, history, loadHistory, afterChange } = useData();
+  const { meters, selectedMeter, selectMeter, history, loadHistory, afterChange, access } = useData();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const toast = useToast();
@@ -63,6 +63,15 @@ export default function Releve() {
 
   if (meters.length === 0) return <Navigate to={withQuery(R.compteurs, { premier: 1 })} replace />;
   if (!meter || !profile) return null;
+  if (access(meter) === "lecteur") {
+    return (
+      <div className="mx-auto max-w-2xl">
+        <PageTitle>Nouveau relevé</PageTitle>
+        <MeterPicker />
+        <Notice className="mt-4">« {meter.name} » t'est partagé en lecture seule : seul son propriétaire, ou un contributeur, peut y ajouter des données.</Notice>
+      </div>
+    );
+  }
 
   function onRead(p: CompressedPhoto, read: ReadResponse<MeterRead>) {
     setPhoto(p);

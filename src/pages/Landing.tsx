@@ -31,6 +31,8 @@ const FEATURES: { icon: IconName; title: string; text: string }[] = [
   { icon: "sparkles", title: "Lecture automatique", text: "Photo de l'écran, du reçu ou du SMS de recharge : les chiffres sont lus pour toi, tu vérifies." },
   { icon: "receipt", title: "Recharges et codes gardés", text: "Wave, Orange Money, MTN MoMo, Moov Money : tout ton historique au même endroit, codes compris." },
   { icon: "chart", title: "Dépenses sous contrôle", text: "Consommation par jour, coût par jour et dépenses du mois, pour savoir combien recharger." },
+  { icon: "users", title: "Partage avec tes proches", text: "Famille à l'étranger, colocataire : partage le suivi d'un compteur. Chacun le voit depuis son compte et reçoit les alertes." },
+  { icon: "history", title: "Bilan de la semaine", text: "Chaque semaine : ta consommation, l'évolution par rapport à la semaine d'avant et tes recharges." },
   { icon: "layers", title: "Plusieurs compteurs", text: "Maison, boutique, logement des parents : suis tous tes compteurs, prépayés ou postpayés. Jusqu'à 50 avec l'offre Entreprise." },
 ];
 
@@ -53,7 +55,7 @@ const FAQ = [
   },
   {
     q: "Et si j'ai un compteur postpayé ?",
-    a: "Tu enregistres l'index de ton compteur et PréviÉnergie estime ta consommation et le montant de ta prochaine facture.",
+    a: "Ajoute ta dernière facture CIE, en photo ou à la main : on en tire ta période de facturation, la part fixe et le vrai prix du kWh, taxes comprises. Avec tes relevés d'index, PréviÉnergie estime ta prochaine facture avant de la recevoir.",
   },
   {
     q: "Comment payer une offre ?",
@@ -296,9 +298,9 @@ export default function Landing() {
           <p className="text-sm font-bold tracking-wide text-brand-700 uppercase">Fonctionnalités</p>
           <h2 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">Tout ton courant, enfin lisible.</h2>
         </div>
-        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
           {FEATURES.map((f, i) => (
-            <div key={f.title} className="reveal group rounded-3xl bg-white p-6 ring-1 ring-stone-200 transition hover:-translate-y-1 hover:shadow-xl hover:shadow-brand-600/10 hover:ring-brand-200" style={{ transitionDelay: `${(i % 3) * 70}ms` }}>
+            <div key={f.title} className="reveal group rounded-3xl bg-white p-6 ring-1 ring-stone-200 transition hover:-translate-y-1 hover:shadow-xl hover:shadow-brand-600/10 hover:ring-brand-200" style={{ transitionDelay: `${(i % 4) * 70}ms` }}>
               <span className="grid h-11 w-11 place-items-center rounded-2xl bg-brand-50 text-brand-700 ring-1 ring-brand-100 transition group-hover:bg-brand-600 group-hover:text-white">
                 <Icon name={f.icon} className="h-5 w-5" />
               </span>
