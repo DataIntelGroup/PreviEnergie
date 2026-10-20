@@ -12,6 +12,7 @@ import { BillHero, toBill, WeeklyCard } from "@/components/Facture";
 import { Gauge } from "@/components/Gauge";
 import { Icon, type IconName } from "@/components/icons";
 import { MeterPicker } from "@/components/MeterPicker";
+import { AccessBanner } from "@/components/AccessBanner";
 import { Invitations } from "@/components/Partage";
 import { Card, Notice } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
@@ -45,7 +46,7 @@ function Stat({ icon, label, value, sub }: { icon: IconName; label: string; valu
 
 export default function Accueil() {
   const { profile } = useAuth();
-  const { meters, selectedMeter, selectMeter, settings, error, access } = useData();
+  const { meters, selectedMeter, selectMeter, settings, error, access, subscription } = useData();
   const [params] = useSearchParams();
   const { forecast, history, loading } = useForecast(selectedMeter);
   const [push, setPush] = useState<string | null>(null);
@@ -107,7 +108,8 @@ export default function Accueil() {
   const prepaid = meter.kind === "prepaid";
   // Postpayé avec facture : le vrai prix du kWh, taxes comprises, plutôt que le prix par défaut.
   const priceKwh = billEstimate?.priceKwh ?? forecast?.priceKwh ?? settings.defaultPriceKwh;
-  const canEdit = access(meter) !== "lecteur";
+  // Lecture seule : compteur partagé en lecteur, ou essai terminé sans offre.
+  const canEdit = access(meter) !== "lecteur" && !subscription.readOnly;
   const shared = access(meter) !== "proprietaire";
   const progress = forecast
     ? Math.min(1, (Math.min(forecast.learning.readings, 3) / 3) * 0.5 + Math.min(forecast.learning.spanDays / 1.75, 1) * 0.5)
@@ -133,6 +135,7 @@ export default function Accueil() {
         </div>
       </div>
 
+      <AccessBanner />
       <Invitations />
       <MeterPicker />
       {error && <Notice tone="error">{error}</Notice>}

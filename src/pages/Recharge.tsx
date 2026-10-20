@@ -4,6 +4,7 @@ import { PAYMENT_LABELS, PAYMENT_METHODS, type PaymentMethod } from "@shared/val
 import { type FormEvent, useEffect, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { CutoffQuestion } from "@/components/CutoffQuestion";
+import { AccessBanner } from "@/components/AccessBanner";
 import { MeterPicker } from "@/components/MeterPicker";
 import { PhotoCapture, type ReadResponse } from "@/components/PhotoCapture";
 import { Button, Card, Field, Input, Notice, PageTitle, Select, Sheet, useToast } from "@/components/ui";
@@ -31,7 +32,7 @@ const toNumber = (s: string) => Number(s.replace(",", ".").replace(/\s/g, ""));
 
 export default function Recharge() {
   const { profile } = useAuth();
-  const { meters, selectedMeter, selectMeter, history, loadHistory, afterChange, access } = useData();
+  const { meters, selectedMeter, selectMeter, history, loadHistory, afterChange, access, subscription } = useData();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const toast = useToast();
@@ -59,6 +60,14 @@ export default function Recharge() {
 
   if (meters.length === 0) return <Navigate to={withQuery(R.compteurs, { premier: 1 })} replace />;
   if (!meter || !profile) return null;
+  if (subscription.readOnly) {
+    return (
+      <div className="mx-auto max-w-2xl">
+        <PageTitle>Nouvelle recharge</PageTitle>
+        <AccessBanner />
+      </div>
+    );
+  }
   if (access(meter) === "lecteur") {
     return (
       <div className="mx-auto max-w-2xl">

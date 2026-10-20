@@ -146,6 +146,12 @@ export default function Reglages() {
         </div>
       </Block>
 
+      <Block title="Essai gratuit" desc="Durée offerte à l'inscription, avant de choisir une offre payante. S'applique aux nouveaux comptes ; les essais en cours ne changent pas." dirty={dirty("trialDays")} readOnly={ro}
+        onReset={() => reset("trialDays")}
+        onSave={() => save("trialDays", (v) => (Number.isInteger(v) && v >= 0 && v <= 90 ? null : "Durée entière entre 0 et 90 jours."))}>
+        <Field label="Durée (jours)">{numberInput(s.trialDays, (n) => patch("trialDays", n), { disabled: ro })}</Field>
+      </Block>
+
       <Block title="Bilan de la semaine" desc="Jour et heure d'envoi du bilan hebdomadaire (heure d'Abidjan). Chaque abonné peut le désactiver." dirty={dirty("weeklySummary")} readOnly={ro}
         onReset={() => reset("weeklySummary")}
         onSave={() => save("weeklySummary", (v) => (HHMM.test(v.time) && v.weekday >= 0 && v.weekday <= 6 ? null : "Jour ou heure invalide."))}>

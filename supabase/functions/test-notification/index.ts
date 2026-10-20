@@ -1,5 +1,6 @@
 // Envoi d'une notification de test sur un canal, depuis l'écran des alertes,
 // pour que l'utilisateur vérifie qu'il la reçoit bien. Limité à 5 par jour.
+import { accessStatus } from "../_shared/acces.ts";
 import { appLink, configuredChannels, send } from "../_shared/canaux.ts";
 import { loadSettings } from "../_shared/donnees.ts";
 import type { Channel } from "../_shared/reglages.ts";
@@ -13,10 +14,11 @@ Deno.serve(handler(async (req) => {
 
   const db = adminClient();
   const [{ data: profile }, settings] = await Promise.all([
-    db.from("profiles").select("first_name, email, phone, plan_code, plan_expires_at").eq("id", user.id).single(),
+    db.from("profiles").select("first_name, email, phone, plan_code, plan_expires_at, trial_ends_at").eq("id", user.id).single(),
     loadSettings(db),
   ]);
   if (!profile) throw new HttpError(404, "Profil introuvable");
+  if (accessStatus(profile, new Date()) === "expired") throw new HttpError(403, "Ton essai gratuit est terminé : choisis une offre pour recevoir tes alertes.");
   const paid = profile.plan_code !== "gratuit" && (!profile.plan_expires_at || new Date(profile.plan_expires_at) > new Date());
   if ((channel === "whatsapp" || channel === "sms") && !paid) throw new HttpError(403, "Canal réservé aux offres payantes");
 

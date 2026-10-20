@@ -27,13 +27,13 @@ const STEPS: { icon: IconName; title: string; text: string }[] = [
 
 const FEATURES: { icon: IconName; title: string; text: string }[] = [
   { icon: "clock", title: "Jours de courant restants", text: "Une jauge claire et la date probable de coupure, avec une marge de sécurité pour ne jamais être surpris." },
-  { icon: "bell", title: "Alertes sur tes canaux", text: "Notification sur ton téléphone et email, gratuitement. WhatsApp et SMS avec les offres payantes." },
+  { icon: "bell", title: "Alertes sur tes canaux", text: "Notification sur ton téléphone et email dès l'offre Découverte. WhatsApp et SMS à partir d'Essentiel." },
   { icon: "sparkles", title: "Lecture automatique", text: "Photo de l'écran, du reçu ou du SMS de recharge : les chiffres sont lus pour toi, tu vérifies." },
   { icon: "receipt", title: "Recharges et codes gardés", text: "Wave, Orange Money, MTN MoMo, Moov Money : tout ton historique au même endroit, codes compris." },
   { icon: "chart", title: "Dépenses sous contrôle", text: "Consommation par jour, coût par jour et dépenses du mois, pour savoir combien recharger." },
   { icon: "users", title: "Partage avec tes proches", text: "Famille à l'étranger, colocataire : partage le suivi d'un compteur. Chacun le voit depuis son compte et reçoit les alertes." },
   { icon: "history", title: "Bilan de la semaine", text: "Chaque semaine : ta consommation, l'évolution par rapport à la semaine d'avant et tes recharges." },
-  { icon: "layers", title: "Plusieurs compteurs", text: "Maison, boutique, logement des parents : suis tous tes compteurs, prépayés ou postpayés. Jusqu'à 50 avec l'offre Entreprise." },
+  { icon: "layers", title: "Plusieurs compteurs", text: "Maison, boutique, logement des parents : suis tous tes compteurs, prépayés ou postpayés. L'offre Entreprise va au-delà de 5." },
 ];
 
 const FAQ = [
@@ -59,7 +59,7 @@ const FAQ = [
   },
   {
     q: "Comment payer une offre ?",
-    a: "Par Wave, Orange Money, MTN MoMo ou Moov Money, via CinetPay. Les offres sont mensuelles et sans engagement : sans renouvellement, tu reviens simplement à l'offre gratuite.",
+    a: "Par Wave, Orange Money, MTN MoMo ou Moov Money, via CinetPay. Chaque compte commence par 7 jours d'essai gratuit. Les offres sont ensuite mensuelles et sans engagement : sans renouvellement, ton compte passe en lecture seule et ton historique reste visible.",
   },
 ];
 
@@ -214,7 +214,7 @@ export default function Landing() {
               </a>
             </div>
             <ul className="mt-7 flex flex-wrap gap-x-6 gap-y-2 text-sm text-stone-600">
-              {["Gratuit pour 1 compteur", "Sans mot de passe", "Sans engagement"].map((t) => (
+              {["7 jours d'essai gratuit", "Sans mot de passe", "Sans engagement"].map((t) => (
                 <li key={t} className="flex items-center gap-1.5"><Icon name="check" className="h-4 w-4 text-emerald-600" /> {t}</li>
               ))}
             </ul>
@@ -316,11 +316,11 @@ export default function Landing() {
         <div className="mx-auto max-w-6xl px-5">
           <div className="reveal mx-auto max-w-2xl text-center">
             <p className="text-sm font-bold tracking-wide text-brand-700 uppercase">Tarifs</p>
-            <h2 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">Gratuit pour commencer. Sans engagement ensuite.</h2>
-            <p className="mt-3 text-stone-600">Paiement mensuel par Wave, Orange Money, MTN MoMo ou Moov Money.</p>
+            <h2 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">7 jours gratuits, puis dès 300 FCFA par mois.</h2>
+            <p className="mt-3 text-stone-600">Chaque compte commence par 7 jours d'essai gratuit, sans moyen de paiement. Ensuite, paiement mensuel par Wave, Orange Money, MTN MoMo ou Moov Money.</p>
           </div>
           <div className="mt-12 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
-            {(plans ?? []).map((p, i) => {
+            {(plans ?? []).filter((p) => p.price_fcfa > 0).map((p, i) => {
               const featured = i === 1;
               return (
                 <div
@@ -376,7 +376,7 @@ export default function Landing() {
         <div className="reveal relative overflow-hidden rounded-[2rem] bg-stone-900 px-8 py-14 text-center text-white">
           <div className="absolute -top-24 left-1/2 h-64 w-[36rem] -translate-x-1/2 rounded-full bg-brand-500/40 blur-3xl" aria-hidden />
           <h2 className="relative text-3xl font-extrabold tracking-tight sm:text-4xl">Ton prochain relevé, c'est maintenant.</h2>
-          <p className="relative mx-auto mt-3 max-w-xl text-stone-300">Crée ton compte avec ton email, ajoute ton compteur et envoie ta première photo. C'est gratuit.</p>
+          <p className="relative mx-auto mt-3 max-w-xl text-stone-300">Crée ton compte avec ton email, ajoute ton compteur et envoie ta première photo. Les 7 premiers jours sont gratuits.</p>
           <Link to={R.connexion} className="animate-pulse-ring relative mt-8 inline-flex items-center gap-2 rounded-2xl bg-brand-500 px-8 py-4 font-bold text-white hover:bg-brand-400">
             Commencer gratuitement <Icon name="arrowRight" className="h-5 w-5" />
           </Link>

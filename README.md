@@ -22,6 +22,10 @@ Points clés :
 - Les canaux payants (WhatsApp, SMS) ne sont envoyés qu'aux offres qui les incluent, avec consentement enregistré.
 - Un canal sans secret configuré est simplement ignoré : l'application fonctionne avec seulement les notifications push et l'email.
 
+## Offres (grille du 2026-10-20)
+
+Pas d'offre gratuite permanente : **7 jours d'essai** à l'inscription (réglable, clé `trialDays`), puis Découverte 300 FCFA, Essentiel 1 000, Famille / Pro 2 500, Entreprise 5 000 (par mois, sans engagement). Essai terminé sans offre payée : **lecture seule**, imposée en base (`is_active_user` → `has_access`) — historique visible, plus de saisie, de lecture photo ni d'alertes. Le code d'offre `gratuit` désigne l'état « sans offre payée » (essai ou lecture seule). Prix et limites se règlent dans le back-office.
+
 ## V1 (2026-10-20)
 
 - **Partage de compteur (BF-15)** : le propriétaire invite par email (5 personnes au plus), en « lecteur » ou « contributeur ». L'invité accepte depuis son compte ; il reçoit les alertes du compteur s'il le souhaite. Règles d'accès : `can_view_meter` / `can_edit_meter` (migration 0006).

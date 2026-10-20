@@ -6,7 +6,6 @@ import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data";
 import { useInstall } from "@/lib/install";
 import { R } from "@/lib/routes";
-import { effectivePlanCode } from "@/lib/types";
 import { Icon, type IconName } from "./icons";
 import { Independence } from "./ui";
 
@@ -59,17 +58,21 @@ function SideLink({ to, label, icon, end }: (typeof SIDE)[number]) {
 }
 
 function PlanCard() {
-  const { profile } = useAuth();
-  const { currentPlan } = useData();
-  const free = effectivePlanCode(profile) === "gratuit";
+  const { currentPlan, subscription, plans } = useData();
+  const d = subscription.trialDaysLeft ?? 0;
+  const from = Math.min(...plans.filter((p) => p.active && p.price_fcfa > 0).map((p) => p.price_fcfa));
   return (
     <div className="bg-hero rounded-2xl p-4 text-white">
       <p className="text-xs text-white/80">Ton offre</p>
-      <p className="text-lg font-extrabold">{currentPlan?.name ?? "Gratuit"}</p>
-      {free ? (
+      <p className="text-lg font-extrabold">
+        {subscription.status === "paid" ? currentPlan?.name : subscription.status === "trial" ? "Essai gratuit" : "Essai terminé"}
+      </p>
+      {subscription.status !== "paid" ? (
         <>
-          <p className="mt-1 text-xs text-white/85">Alertes WhatsApp et SMS, plus de compteurs.</p>
-          <Link to={R.offres} className="mt-3 block rounded-xl bg-white py-2 text-center text-sm font-bold text-brand-700">Passer à l'offre supérieure</Link>
+          <p className="mt-1 text-xs text-white/85">
+            {subscription.status === "trial" ? `Encore ${d} jour${d > 1 ? "s" : ""}, puis dès ${Number.isFinite(from) ? from : 300} FCFA par mois.` : "Lecture seule : choisis une offre pour reprendre."}
+          </p>
+          <Link to={R.offres} className="mt-3 block rounded-xl bg-white py-2 text-center text-sm font-bold text-brand-700">Choisir une offre</Link>
         </>
       ) : (
         <Link to={R.offres} className="mt-3 block rounded-xl bg-white/20 py-2 text-center text-sm font-bold text-white ring-1 ring-white/30">Gérer mon offre</Link>

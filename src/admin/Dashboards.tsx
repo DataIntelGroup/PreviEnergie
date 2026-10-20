@@ -2,10 +2,11 @@
 // alimentés par un seul appel à admin_dashboard.
 import { ALERT_LABELS, type AlertType, CHANNEL_LABELS, type Channel } from "@shared/reglages.ts";
 import { PAYMENT_LABELS } from "@shared/validation.ts";
-import type { ReactNode } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 import { BarChart } from "@/components/BarChart";
 import { Card, Notice, Spinner } from "@/components/ui";
 import { fcfa, fmtDate, fmtDateTime, num, pct } from "@/lib/format";
+import { supabase } from "@/lib/supabase";
 import { useAdmin } from "./AdminApp";
 
 interface Item {
@@ -42,7 +43,34 @@ export interface Dashboard {
   };
 }
 
-const PLAN_NAMES: Record<string, string> = { gratuit: "Gratuit", essentiel: "Essentiel", famille_pro: "Famille / Pro", entreprise: "Entreprise" };
+const PLAN_NAMES: Record<string, string> = {
+  gratuit: "Essai ou lecture seule", decouverte: "Découverte", essentiel: "Essentiel", famille_pro: "Famille / Pro", entreprise: "Entreprise",
+};
+
+interface TrialStats {
+  trial: number;
+  expired: number;
+  paid: number;
+  trialEndingSoon: number;
+}
+
+/** Essais en cours, essais terminés sans paiement, abonnés payants. */
+function TrialTiles() {
+  const [t, setT] = useState<TrialStats | null>(null);
+  useEffect(() => {
+    supabase.rpc("admin_trial_stats").then(({ data }) => setT(data as TrialStats));
+  }, []);
+  if (!t) return null;
+  const started = t.trial + t.expired + t.paid;
+  return (
+    <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <Tile label="En essai gratuit" value={num(t.trial, 0)} sub={`${num(t.trialEndingSoon, 0)} se terminent dans 2 jours`} />
+      <Tile label="Essai terminé, sans offre" value={num(t.expired, 0)} sub="comptes en lecture seule" />
+      <Tile label="Abonnés payants" value={num(t.paid, 0)} />
+      <Tile label="Passage au payant" value={pct(started - t.trial > 0 ? t.paid / (started - t.trial) : 0)} sub="parmi les essais terminés" />
+    </div>
+  );
+}
 const KIND_NAMES: Record<string, string> = { prepaid: "Prépayé", postpaid: "Postpayé" };
 const SOURCE_NAMES: Record<string, string> = { photo: "Photo", manuel: "Saisie" };
 
@@ -142,6 +170,7 @@ export default function Dashboards({ view }: { view: "signups" | "finance" | "co
               <Tile label={`Actifs (${days} j)`} value={num(s.active, 0)} sub="au moins un relevé" />
               <Tile label="Taux d'activité" value={pct(s.total ? s.active / s.total : 0)} />
             </div>
+            <TrialTiles />
             <Series title="Inscriptions par jour" points={s.series} format={(v) => `${num(v, 0)} inscription${v > 1 ? "s" : ""}`} />
             <div className="grid gap-3 lg:grid-cols-2">
               <Breakdown title="Par commune" items={s.byCommune} />
