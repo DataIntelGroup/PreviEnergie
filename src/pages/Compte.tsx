@@ -36,18 +36,21 @@ export default function Compte() {
   async function exportData() {
     setBusy(true);
     try {
-      const [p, m, r, c, a, pay, fb] = await Promise.all([
+      const [p, m, r, c, a, pay, fb, bi, sh] = await Promise.all([
         supabase.from("profiles").select("*").eq("id", profile!.id).single(),
-        supabase.from("meters").select("*"),
-        supabase.from("readings").select("*").order("taken_at"),
-        supabase.from("recharges").select("*").order("purchased_at"),
-        supabase.from("alerts").select("*").order("sent_at"),
-        supabase.from("payments").select("id, plan_code, amount_fcfa, transaction_id, status, method, period_start, period_end, created_at"),
-        supabase.from("cutoff_feedback").select("*"),
+        // Filtre explicite : un compte d'équipe lit davantage que ses données (back-office).
+        supabase.from("meters").select("*").eq("user_id", profile!.id),
+        supabase.from("readings").select("*").eq("user_id", profile!.id).order("taken_at"),
+        supabase.from("recharges").select("*").eq("user_id", profile!.id).order("purchased_at"),
+        supabase.from("alerts").select("*").eq("user_id", profile!.id).order("sent_at"),
+        supabase.from("payments").select("id, plan_code, amount_fcfa, transaction_id, status, method, period_start, period_end, created_at").eq("user_id", profile!.id),
+        supabase.from("cutoff_feedback").select("*").eq("user_id", profile!.id),
+        supabase.from("bills").select("*").eq("user_id", profile!.id).order("period_end"),
+        supabase.from("meter_shares").select("*").or(`owner_id.eq.${profile!.id},member_id.eq.${profile!.id}`),
       ]);
       const data = {
         exporte_le: new Date().toISOString(),
-        profil: p.data, compteurs: m.data, releves: r.data, recharges: c.data, alertes: a.data, paiements: pay.data, retours_coupure: fb.data,
+        profil: p.data, compteurs: m.data, releves: r.data, recharges: c.data, alertes: a.data, paiements: pay.data, retours_coupure: fb.data, factures: bi.data, partages: sh.data,
       };
       const url = URL.createObjectURL(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }));
       const link = document.createElement("a");

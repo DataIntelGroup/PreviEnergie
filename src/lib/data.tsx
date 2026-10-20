@@ -6,11 +6,13 @@ import { createContext, type ReactNode, useCallback, useContext, useEffect, useM
 import { FullPageSpinner } from "@/components/ui";
 import { useAuth } from "./auth";
 import { callFunction, supabase } from "./supabase";
-import { effectivePlanCode, type Meter, type Plan, type ReadingRow, type RechargeRow } from "./types";
+import { type BillRow, effectivePlanCode, type Meter, type MeterAccess, type Plan, type ReadingRow, type RechargeRow, type ShareRow } from "./types";
 
 export interface MeterHistory {
   readings: ReadingRow[];
   recharges: RechargeRow[];
+  /** Factures postpayées, de la plus récente à la plus ancienne (BF-14). */
+  bills: BillRow[];
   loadedAt: number;
 }
 
@@ -18,7 +20,16 @@ interface DataState {
   ready: boolean;
   plans: Plan[];
   settings: Settings;
+  /** Compteurs visibles : les miens et ceux partagés avec moi. */
   meters: Meter[];
+  /** Compteurs dont je suis propriétaire (ils comptent dans la limite de l'offre). */
+  ownedMeters: Meter[];
+  /** Partages visibles : ceux de mes compteurs, ceux dont je suis membre, mes invitations. */
+  shares: ShareRow[];
+  /** Invitations reçues, en attente de ma réponse. */
+  invitations: ShareRow[];
+  access: (meter: Meter) => MeterAccess;
+  refreshShares: () => Promise<void>;
   currentPlan: Plan | null;
   selectedMeter: Meter | null;
   selectMeter: (id: string) => void;
@@ -48,17 +59,27 @@ export function DataProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [settings, setSettings] = useState<Settings>(resolveSettings([]));
-  const [meters, setMeters] = useState<Meter[]>([]);
+  const [allMeters, setMeters] = useState<Meter[]>([]);
+  const [shares, setShares] = useState<ShareRow[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(readSelected);
   const [histories, setHistories] = useState<Record<string, MeterHistory>>({});
   const [error, setError] = useState<string | null>(null);
 
-  const refreshMeters = useCallback(async () => {
-    const { data, error } = await supabase.from("meters").select("*").order("created_at");
+  const refreshShares = useCallback(async () => {
+    const { data, error } = await supabase.from("meter_shares").select("*").order("created_at");
     if (error) throw error;
-    setMeters(data as Meter[]);
-    return data as Meter[];
-  }, []);
+    // Comme pour les compteurs : l'équipe lit tous les partages, on ne garde que les miens.
+    const me = profile?.id;
+    const email = profile?.email?.toLowerCase();
+    setShares((data as ShareRow[]).filter((s) => s.owner_id === me || s.member_id === me || (s.status === "pending" && s.email === email)));
+  }, [profile?.id, profile?.email]);
+
+  const refreshMeters = useCallback(async () => {
+    const [m] = await Promise.all([supabase.from("meters").select("*").order("created_at"), refreshShares()]);
+    if (m.error) throw m.error;
+    setMeters(m.data as Meter[]);
+    return m.data as Meter[];
+  }, [refreshShares]);
 
   useEffect(() => {
     if (!profile) return;
@@ -91,15 +112,25 @@ export function DataProvider({ children }: { children: ReactNode }) {
     const cached = histories[meterId];
     if (cached && !force && Date.now() - cached.loadedAt < 60_000) return cached;
     const since = new Date(Date.now() - HISTORY_DAYS * 86_400_000).toISOString();
-    const [r, c] = await Promise.all([
+    const [r, c, b] = await Promise.all([
       supabase.from("readings").select("*").eq("meter_id", meterId).gte("taken_at", since).order("taken_at"),
       supabase.from("recharges").select("*").eq("meter_id", meterId).gte("purchased_at", since).order("purchased_at"),
+      supabase.from("bills").select("*").eq("meter_id", meterId).order("period_end", { ascending: false }).limit(12),
     ]);
     if (r.error) throw r.error;
     if (c.error) throw c.error;
+    if (b.error) throw b.error;
     const h: MeterHistory = {
       readings: (r.data as ReadingRow[]).map((x) => ({ ...x, value: Number(x.value) })),
       recharges: (c.data as RechargeRow[]).map((x) => ({ ...x, kwh: Number(x.kwh), amount_fcfa: Number(x.amount_fcfa) })),
+      bills: (b.data as BillRow[]).map((x) => ({
+        ...x,
+        kwh: Number(x.kwh),
+        amount_fcfa: Number(x.amount_fcfa),
+        index_start: x.index_start === null ? null : Number(x.index_start),
+        index_end: x.index_end === null ? null : Number(x.index_end),
+        fixed_fcfa: x.fixed_fcfa === null ? null : Number(x.fixed_fcfa),
+      })),
       loadedAt: Date.now(),
     };
     setHistories((prev) => ({ ...prev, [meterId]: h }));
@@ -112,14 +143,38 @@ export function DataProvider({ children }: { children: ReactNode }) {
     callFunction("prevision", { meterId }).catch((e) => console.warn("recalcul serveur", e));
   }, [loadHistory]);
 
+  // La RLS laisse l'équipe (admin, support) lire tous les compteurs pour le
+  // back-office : l'application, elle, ne montre que les miens et ceux qu'on
+  // m'a vraiment partagés.
+  const meters = useMemo(
+    () => allMeters.filter((m) =>
+      m.user_id === profile?.id ||
+      shares.some((s) => s.meter_id === m.id && s.member_id === profile?.id && s.status === "accepted")),
+    [allMeters, shares, profile?.id],
+  );
   const selectedMeter = meters.find((m) => m.id === selectedId) ?? meters[0] ?? null;
   const currentPlan = plans.find((p) => p.code === effectivePlanCode(profile)) ?? null;
+  const ownedMeters = useMemo(() => meters.filter((m) => m.user_id === profile?.id), [meters, profile?.id]);
+  const invitations = useMemo(
+    () => shares.filter((s) => s.status === "pending" && s.owner_id !== profile?.id && s.email === profile?.email?.toLowerCase()),
+    [shares, profile?.id, profile?.email],
+  );
+  const access = useCallback((m: Meter): MeterAccess => {
+    if (m.user_id === profile?.id) return "proprietaire";
+    const s = shares.find((x) => x.meter_id === m.id && x.member_id === profile?.id && x.status === "accepted");
+    return s?.role === "contributeur" ? "contributeur" : "lecteur";
+  }, [shares, profile?.id]);
 
   const value = useMemo<DataState>(() => ({
     ready,
     plans,
     settings,
     meters,
+    ownedMeters,
+    shares,
+    invitations,
+    access,
+    refreshShares,
     currentPlan,
     selectedMeter,
     selectMeter: (id) => {
@@ -135,7 +190,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     loadHistory,
     afterChange,
     error,
-  }), [ready, plans, settings, meters, currentPlan, selectedMeter, refreshMeters, histories, loadHistory, afterChange, error]);
+  }), [ready, plans, settings, meters, ownedMeters, shares, invitations, access, refreshShares, currentPlan, selectedMeter, refreshMeters, histories, loadHistory, afterChange, error]);
 
   // Rien ne s'affiche avant le premier chargement : sinon une page ouverte
   // directement (/releve) croirait qu'il n'y a aucun compteur.

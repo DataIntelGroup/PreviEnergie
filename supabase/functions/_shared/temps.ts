@@ -75,3 +75,24 @@ export function addDays(date: string, days: number): string {
   d.setUTCDate(d.getUTCDate() + days);
   return d.toISOString().slice(0, 10);
 }
+
+/** Jour de la semaine d'une date AAAA-MM-JJ : 0 = dimanche, 1 = lundi… */
+export function weekday(date: string): number {
+  return new Date(`${date}T00:00:00Z`).getUTCDay();
+}
+
+/** Semaine ISO d'une date AAAA-MM-JJ, au format « 2026-S43 ». */
+export function isoWeekKey(date: string): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  const day = (d.getUTCDay() + 6) % 7; // lundi = 0
+  d.setUTCDate(d.getUTCDate() - day + 3); // jeudi de la semaine
+  const year = d.getUTCFullYear();
+  const firstThursday = new Date(Date.UTC(year, 0, 4));
+  const week = 1 + Math.round(((d.getTime() - firstThursday.getTime()) / DAY_MS - 3 + ((firstThursday.getUTCDay() + 6) % 7)) / 7);
+  return `${year}-S${String(week).padStart(2, "0")}`;
+}
+
+/** Nombre de jours entre deux dates AAAA-MM-JJ. */
+export function daysBetween(from: string, to: string): number {
+  return Math.round((new Date(`${to}T00:00:00Z`).getTime() - new Date(`${from}T00:00:00Z`).getTime()) / DAY_MS);
+}

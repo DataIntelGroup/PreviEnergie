@@ -7,3 +7,6 @@ dev-dist
 supabase/.temp
 supabase/.branches
 *.tsbuildinfo
+
+# Documents personnels (factures d exemple…) : jamais versionnés ni publiés
+docs/prive/

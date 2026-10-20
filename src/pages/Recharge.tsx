@@ -31,7 +31,7 @@ const toNumber = (s: string) => Number(s.replace(",", ".").replace(/\s/g, ""));
 
 export default function Recharge() {
   const { profile } = useAuth();
-  const { meters, selectedMeter, selectMeter, history, loadHistory, afterChange } = useData();
+  const { meters, selectedMeter, selectMeter, history, loadHistory, afterChange, access } = useData();
   const [params] = useSearchParams();
   const navigate = useNavigate();
   const toast = useToast();
@@ -59,6 +59,15 @@ export default function Recharge() {
 
   if (meters.length === 0) return <Navigate to={withQuery(R.compteurs, { premier: 1 })} replace />;
   if (!meter || !profile) return null;
+  if (access(meter) === "lecteur") {
+    return (
+      <div className="mx-auto max-w-2xl">
+        <PageTitle>Nouvelle recharge</PageTitle>
+        <MeterPicker />
+        <Notice className="mt-4">« {meter.name} » t'est partagé en lecture seule : seul son propriétaire, ou un contributeur, peut y ajouter des données.</Notice>
+      </div>
+    );
+  }
   if (meter.kind === "postpaid") {
     return (
       <div>

@@ -12,6 +12,8 @@ import { callFunction, errorMessage, supabase } from "@/lib/supabase";
 import type { AlertRow } from "@/lib/types";
 import { R } from "@/lib/routes";
 
+const WEEKDAYS = ["dimanche", "lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi"];
+
 const DESCRIPTIONS: Record<Channel, string> = {
   push: "Gratuit, sur ce téléphone.",
   email: "Gratuit, à ton adresse de connexion.",
@@ -21,7 +23,7 @@ const DESCRIPTIONS: Record<Channel, string> = {
 
 export default function Alertes() {
   const { profile, refreshProfile } = useAuth();
-  const { currentPlan, meters } = useData();
+  const { currentPlan, meters, settings } = useData();
   const toast = useToast();
   const [push, setPush] = useState<PushState | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
@@ -31,7 +33,7 @@ export default function Alertes() {
 
   useEffect(() => {
     pushState().then(setPush).catch(() => setPush("unsupported"));
-    supabase.from("alerts").select("id, meter_id, type, channel, status, message, sent_at").neq("type", "test")
+    supabase.from("alerts").select("id, meter_id, type, channel, status, message, sent_at").eq("user_id", profile!.id).neq("type", "test")
       .order("sent_at", { ascending: false }).limit(10)
       .then(({ data }) => setRecent((data as AlertRow[]) ?? []));
   }, []);
@@ -146,6 +148,15 @@ export default function Alertes() {
         >
           Enregistrer
         </Button>
+      </Card>
+
+      <Card className="p-5">
+        <Toggle
+          label="Bilan de la semaine"
+          description={`Chaque ${WEEKDAYS[settings.weeklySummary.weekday]} à ${settings.weeklySummary.time.replace(":", " h ")} : ta consommation, l'évolution et tes recharges de la semaine.`}
+          checked={profile.weekly_summary}
+          onChange={(v) => void update({ weekly_summary: v }, v ? "Bilan hebdomadaire activé" : "Bilan hebdomadaire désactivé")}
+        />
       </Card>
       </div>
 

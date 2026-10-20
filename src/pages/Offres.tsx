@@ -23,7 +23,7 @@ export default function Offres() {
   const polled = useRef(false);
 
   const loadPayments = () =>
-    supabase.from("payments").select("*").order("created_at", { ascending: false }).limit(10)
+    supabase.from("payments").select("*").eq("user_id", profile!.id).order("created_at", { ascending: false }).limit(10)
       .then(({ data }) => setPayments((data as PaymentRow[]) ?? []));
 
   useEffect(() => {

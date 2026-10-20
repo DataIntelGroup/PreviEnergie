@@ -11,7 +11,8 @@ export type AlertType =
   | "veille"
   | "veille_rappel"
   | "releve"
-  | "anomalie";
+  | "anomalie"
+  | "bilan";
 
 export const ALERT_TYPES: AlertType[] = [
   "niveau_j5",
@@ -20,6 +21,7 @@ export const ALERT_TYPES: AlertType[] = [
   "veille_rappel",
   "releve",
   "anomalie",
+  "bilan",
 ];
 
 export interface Settings {
@@ -37,9 +39,12 @@ export interface Settings {
   defaultPriceKwh: number;
   /** Types d'alerte autorisés par canal (le SMS reste réservé à l'urgent). */
   channelTypes: Record<Channel, AlertType[]>;
+  /** Bilan hebdomadaire (BF-21) : jour (0 = dimanche, 1 = lundi…) et heure d'envoi. */
+  weeklySummary: { weekday: number; time: string };
   /** Coûts unitaires en FCFA, pour le tableau des coûts et de la marge. */
   unitCosts: { whatsapp: number; sms: number; email: number; aiRead: number; push: number };
-  /** Modèles de messages ; {nom}, {compteur}, {jours}, {date}, {heure} sont remplacés. */
+  /** Modèles de messages ; {nom}, {compteur}, {jours}, {date}, {heure} sont remplacés,
+   *  et pour le bilan {kwh}, {evolution}, {depense}. */
   templates: Record<AlertType, string>;
 }
 
@@ -53,9 +58,11 @@ export const DEFAULT_SETTINGS: Settings = {
   channelTypes: {
     push: [...ALERT_TYPES],
     email: [...ALERT_TYPES],
+    // Le bilan, non urgent, reste sur les canaux gratuits par défaut.
     whatsapp: ["niveau_j5", "niveau_j2", "veille", "veille_rappel", "anomalie", "releve"],
     sms: ["niveau_j2", "veille"],
   },
+  weeklySummary: { weekday: 1, time: "08:00" },
   unitCosts: { whatsapp: 30, sms: 25, email: 0.5, aiRead: 6, push: 0 },
   templates: {
     niveau_j5:
@@ -70,6 +77,8 @@ export const DEFAULT_SETTINGS: Settings = {
       "{nom}, envoie un relevé de « {compteur} » pour garder une prévision juste. Ça prend 10 secondes.",
     anomalie:
       "{nom}, la consommation de « {compteur} » a doublé par rapport à d'habitude. Vérifie tes appareils.",
+    bilan:
+      "{nom}, ta semaine sur « {compteur} » : {kwh} consommés ({evolution}), {depense} de recharges.",
   },
 };
 
@@ -80,6 +89,7 @@ export const ALERT_LABELS: Record<AlertType, string> = {
   veille_rappel: "Rappel de 21 h",
   releve: "Relance de relevé",
   anomalie: "Consommation anormale",
+  bilan: "Bilan de la semaine",
 };
 
 export const CHANNEL_LABELS: Record<Channel, string> = {

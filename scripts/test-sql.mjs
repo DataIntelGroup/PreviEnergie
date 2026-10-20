@@ -300,6 +300,90 @@ async function main() {
     assert(p.plan_code === "gratuit" && p.plan_expires_at === null);
   });
 
+  console.log("\nPartage de compteur (BF-15) et factures (BF-14)");
+  const OWNER = await newUser("proprio@previenergie.test");
+  const GUEST = await newUser("Diaspora@previenergie.test");
+  const OTHER = await newUser("voisin@previenergie.test");
+  await completeProfile(OWNER, "0101010101");
+  await completeProfile(GUEST, "0101010102");
+  await completeProfile(OTHER, "0101010103");
+  const shared = (await user(OWNER, (q) => q("insert into meters (name) values ('Maison des parents') returning id"))).rows[0].id;
+  await user(OWNER, (q) => q("insert into readings (meter_id, value) values ($1, 50)", [shared]));
+  let shareId;
+
+  await check("seul le propriétaire partage son compteur", async () => {
+    await rejects(() => user(OTHER, (q) => q("select share_meter($1, 'diaspora@previenergie.test')", [shared])), /propriétaire/);
+    await rejects(() => user(OWNER, (q) => q("select share_meter($1, 'proprio@previenergie.test')", [shared])), /propre compteur/);
+    const { rows } = await user(OWNER, (q) => q("select share_meter($1, ' DIASPORA@previenergie.test ', 'lecteur') r", [shared]));
+    shareId = rows[0].r.id;
+    assert(rows[0].r.email === "diaspora@previenergie.test" && rows[0].r.status === "pending");
+  });
+  await check("avant acceptation, l'invité voit l'invitation mais pas le compteur", async () => {
+    const inv = await user(GUEST, (q) => q("select id, owner_name from meter_shares"));
+    assert(inv.rows.length === 1 && inv.rows[0].owner_name === "Awa Koné", JSON.stringify(inv.rows));
+    const m = await user(GUEST, (q) => q("select id from meters where id = $1", [shared]));
+    assert(m.rows.length === 0);
+    const other = await user(OTHER, (q) => q("select id from meter_shares"));
+    assert(other.rows.length === 0, "un tiers voit l'invitation");
+  });
+  await check("un tiers ne peut pas accepter l'invitation d'un autre", () =>
+    rejects(() => user(OTHER, (q) => q("select accept_share($1)", [shareId])), /introuvable/));
+  await check("une fois acceptée, le lecteur voit compteur et relevés, sans pouvoir saisir", async () => {
+    await user(GUEST, (q) => q("select accept_share($1)", [shareId]));
+    const m = await user(GUEST, (q) => q("select id from meters"));
+    assert(m.rows.some((r) => r.id === shared));
+    const r = await user(GUEST, (q) => q("select value from readings where meter_id = $1", [shared]));
+    assert(r.rows.length === 1 && Number(r.rows[0].value) === 50);
+    await rejects(() => user(GUEST, (q) => q("insert into readings (meter_id, value) values ($1, 45)", [shared])), /42501|row-level/);
+  });
+  await check("le compteur partagé ne compte pas dans la limite de l'invité", async () => {
+    await user(GUEST, (q) => q("insert into meters (name) values ('Mon studio')"));
+  });
+  await check("seul le propriétaire change le rôle ; le contributeur saisit", async () => {
+    await rejects(() => user(GUEST, (q) => q("select update_share($1, 'contributeur')", [shareId])), /propriétaire/);
+    await user(OWNER, (q) => q("select update_share($1, 'contributeur')", [shareId]));
+    await user(GUEST, (q) => q("insert into readings (meter_id, value) values ($1, 45)", [shared]));
+    const r = await user(OWNER, (q) => q("select count(*)::int n from readings where meter_id = $1", [shared]));
+    assert(r.rows[0].n === 2, "le propriétaire ne voit pas le relevé du contributeur");
+  });
+  await check("le contributeur ne supprime que ses propres relevés", async () => {
+    const del = await user(GUEST, (q) => q("delete from readings where meter_id = $1 and value = 50", [shared]));
+    assert(del.rowCount === 0);
+  });
+  await check("le membre coupe ses alertes ; un tiers ne touche à rien", async () => {
+    await user(GUEST, (q) => q("select update_share($1, null, false)", [shareId]));
+    const { rows } = await db.query("select alerts from meter_shares where id = $1", [shareId]);
+    assert(rows[0].alerts === false);
+    await rejects(() => user(OTHER, (q) => q("select update_share($1, null, true)", [shareId])), /42501|autorisée/);
+    await rejects(() => user(OTHER, (q) => q("select remove_share($1)", [shareId])), /introuvable/);
+  });
+  await check("factures : le membre les voit, le tiers non ; contrôles de cohérence", async () => {
+    await user(OWNER, (q) => q("insert into bills (meter_id, period_start, period_end, index_start, index_end, kwh, amount_fcfa, fixed_fcfa) values ($1, '2026-08-04', '2026-10-04', 28546, 29383, 837, 69905, 8415)", [shared]));
+    const seen = await user(GUEST, (q) => q("select kwh from bills where meter_id = $1", [shared]));
+    assert(seen.rows.length === 1);
+    const hidden = await user(OTHER, (q) => q("select kwh from bills"));
+    assert(hidden.rows.length === 0);
+    await rejects(() => user(OWNER, (q) => q("insert into bills (meter_id, period_start, period_end, kwh, amount_fcfa) values ($1, '2026-10-04', '2026-08-04', 10, 1000)", [shared])), /23514|check/);
+    await rejects(() => user(OWNER, (q) => q("insert into bills (meter_id, period_start, period_end, kwh, amount_fcfa, fixed_fcfa) values ($1, '2026-10-04', '2026-12-04', 10, 1000, 1000)", [shared])), /23514|check/);
+  });
+  await check("retirer le partage coupe l'accès", async () => {
+    await user(OWNER, (q) => q("select remove_share($1)", [shareId]));
+    const m = await user(GUEST, (q) => q("select id from meters where id = $1", [shared]));
+    const r = await user(GUEST, (q) => q("select id from readings where meter_id = $1", [shared]));
+    assert(m.rows.length === 0 && r.rows.length === 0);
+  });
+  await check("une alerte part à chaque destinataire, une fois", async () => {
+    const ins = "insert into alerts (user_id, meter_id, type, channel, cycle_key, status) values ($1, $2, 'veille', 'push', 'c1', 'sent')";
+    await service((q) => q(ins, [OWNER, shared]));
+    await service((q) => q(ins, [GUEST, shared]));
+    await rejects(() => service((q) => q(ins, [GUEST, shared])), /23505|unique/);
+  });
+  await check("l'abonné peut refuser le bilan hebdomadaire", async () => {
+    await user(OWNER, (q) => q("update profiles set weekly_summary = false where id = $1", [OWNER]));
+    const { rows } = await db.query("select weekly_summary from profiles where id = $1", [OWNER]);
+    assert(rows[0].weekly_summary === false);
+  });
+
   console.log("\nNotifications push");
   await check("un appareil passe au dernier compte abonné", async () => {
     const ep = "https://push.example/abc";

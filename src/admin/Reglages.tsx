@@ -146,6 +146,22 @@ export default function Reglages() {
         </div>
       </Block>
 
+      <Block title="Bilan de la semaine" desc="Jour et heure d'envoi du bilan hebdomadaire (heure d'Abidjan). Chaque abonné peut le désactiver." dirty={dirty("weeklySummary")} readOnly={ro}
+        onReset={() => reset("weeklySummary")}
+        onSave={() => save("weeklySummary", (v) => (HHMM.test(v.time) && v.weekday >= 0 && v.weekday <= 6 ? null : "Jour ou heure invalide."))}>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Jour">
+            {(id) => (
+              <select id={id} disabled={ro} value={s.weeklySummary.weekday} onChange={(e) => patch("weeklySummary", { ...s.weeklySummary, weekday: Number(e.target.value) })}
+                className="block min-h-12 w-full rounded-xl border border-stone-300 bg-white px-4 disabled:bg-stone-100">
+                {["Dimanche", "Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi"].map((d, i) => <option key={d} value={i}>{d}</option>)}
+              </select>
+            )}
+          </Field>
+          <Field label="Heure">{(id) => <Input id={id} type="time" disabled={ro} value={s.weeklySummary.time} onChange={(e) => patch("weeklySummary", { ...s.weeklySummary, time: e.target.value })} />}</Field>
+        </div>
+      </Block>
+
       <Block title="Types d'alerte par canal" desc="Le SMS, payant, reste réservé aux alertes urgentes." dirty={dirty("channelTypes")} readOnly={ro}
         onReset={() => reset("channelTypes")} onSave={() => save("channelTypes")}>
         <div className="overflow-x-auto">

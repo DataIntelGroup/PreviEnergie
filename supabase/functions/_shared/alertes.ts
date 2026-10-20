@@ -1,6 +1,7 @@
 // Règles d'alerte (BF-16 à BF-20), en fonctions pures : la tâche horaire
 // leur passe l'état d'un compteur et reçoit la liste des envois à faire.
 
+import { formatChange, type WeeklySummary } from "./bilan.ts";
 import type { Forecast, MeterKind } from "./prevision.ts";
 import {
   type AlertType,
@@ -9,7 +10,7 @@ import {
   fillTemplate,
   type Settings,
 } from "./reglages.ts";
-import { addDays, abidjanInstant, HOUR_MS, inQuietHours, localParts, parseHHMM, TIME_ZONE } from "./temps.ts";
+import { addDays, abidjanInstant, HOUR_MS, inQuietHours, isoWeekKey, localParts, parseHHMM, TIME_ZONE, weekday } from "./temps.ts";
 
 export interface SentAlert {
   type: AlertType;
@@ -27,8 +28,11 @@ export interface AlertContext {
   userChannels: Channel[];
   /** Canaux inclus dans son offre. */
   planChannels: Channel[];
-  /** Alertes déjà parties pour ce compteur (tous canaux confondus). */
+  /** Alertes déjà parties pour ce compteur et ce destinataire (tous canaux confondus). */
   sent: SentAlert[];
+  /** Bilan des 7 derniers jours (BF-21), et choix de l'abonné de le recevoir. */
+  weekly?: WeeklySummary | null;
+  weeklyEnabled?: boolean;
 }
 
 export interface PlannedAlert {
@@ -117,6 +121,13 @@ export function planAlerts(ctx: AlertContext): PlannedAlert[] {
   // Consommation anormale (BF-18), une fois par cycle.
   if (forecast.anomaly && !sentInCycle.has("anomalie")) push("anomalie", cycleKey);
 
+  // Bilan de la semaine (BF-21), une fois par semaine, le jour réglé.
+  const w = settings.weeklySummary;
+  if (ctx.weeklyEnabled !== false && ctx.weekly && weekday(local.date) === w.weekday && local.minutes >= parseHHMM(w.time)) {
+    const weekKey = `semaine:${isoWeekKey(local.date)}`;
+    if (!ctx.sent.some((s) => s.type === "bilan" && s.cycleKey === weekKey)) push("bilan", weekKey);
+  }
+
   return out;
 }
 
@@ -141,10 +152,17 @@ export function formatCutoffHour(iso: string): string {
   return hourFmt.format(new Date(iso)).replace(":", " h ");
 }
 
-export function renderMessage(type: AlertType, ctx: Pick<AlertContext, "forecast" | "settings" | "meter" | "firstName">): string {
+const kwhFmt = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 1 });
+const fcfaFmt = new Intl.NumberFormat("fr-FR", { maximumFractionDigits: 0 });
+
+export function renderMessage(type: AlertType, ctx: Pick<AlertContext, "forecast" | "settings" | "meter" | "firstName" | "weekly">): string {
   const f = ctx.forecast;
   const days = f.daysRemaining === null ? "" : String(Math.max(1, Math.round(f.daysRemaining)));
+  const w = ctx.weekly;
   return fillTemplate(ctx.settings.templates[type], {
+    kwh: w ? `${kwhFmt.format(w.kwh)} kWh` : "",
+    evolution: w ? formatChange(w.change) : "",
+    depense: w ? `${fcfaFmt.format(w.spendFcfa)} FCFA` : "",
     nom: ctx.firstName,
     compteur: ctx.meter.name,
     jours: days,
