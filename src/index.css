@@ -93,6 +93,16 @@ input[type="number"]::-webkit-outer-spin-button {
   animation: pe-pulse-ring 2.4s ease-out infinite;
 }
 
+/* Fondu entre les pages : transparence seule. Une animation de transform
+   ferait du bloc le repère des éléments « fixed » (fenêtres, bulles). */
+@keyframes pe-page-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+.animate-page-in {
+  animation: pe-page-in 0.25s ease-out;
+}
+
 /* Apparition au défilement (voir useReveal). */
 .reveal {
   opacity: 0;
@@ -105,7 +115,7 @@ input[type="number"]::-webkit-outer-spin-button {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-float, .animate-float-slow, .animate-pulse-ring, .animate-fade-up { animation: none; }
+  .animate-float, .animate-float-slow, .animate-pulse-ring, .animate-fade-up, .animate-page-in { animation: none; }
   .reveal { opacity: 1; transform: none; transition: none; }
   html { scroll-behavior: auto; }
 }

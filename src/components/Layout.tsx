@@ -133,7 +133,7 @@ export function AppLayout() {
 
         <main className="mx-auto w-full max-w-6xl flex-1 px-4 pt-5 pb-32 sm:px-6 lg:px-10 lg:pt-10 lg:pb-12">
           {/* Fondu à chaque changement de page : on voit qu'on a changé d'écran. */}
-          <div key={pathname} className="animate-fade-up">
+          <div key={pathname} className="animate-page-in">
             <Outlet />
           </div>
           <Independence className="mt-10" />

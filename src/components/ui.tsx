@@ -9,8 +9,10 @@ import {
   useCallback,
   useContext,
   useId,
+  useEffect,
   useState,
 } from "react";
+import { createPortal } from "react-dom";
 
 type Variant = "primary" | "secondary" | "ghost" | "danger";
 
@@ -201,25 +203,40 @@ export const useToast = () => useContext(ToastContext);
 
 // ---------------------------------------------------------------- feuille modale
 export function Sheet({ open, onClose, title, children }: { open: boolean; onClose: () => void; title: string; children: ReactNode }) {
+  // Échap ferme la fenêtre ; la page derrière ne défile plus tant qu'elle est ouverte.
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
+    const previous = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = previous;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [open, onClose]);
   if (!open) return null;
-  return (
-    <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/40 sm:items-center" onClick={onClose}>
+  // Rendue directement dans <body> : un parent animé (fondu de page) ne peut
+  // plus la coincer dans la zone de contenu.
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 backdrop-blur-[2px] sm:items-center sm:p-6" onClick={onClose}>
       <div
         role="dialog"
         aria-modal="true"
         aria-label={title}
-        className="animate-fade-up max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 pb-safe sm:rounded-3xl"
+        className="animate-fade-up max-h-[92dvh] w-full max-w-md overflow-y-auto rounded-t-3xl bg-white p-5 pb-safe shadow-2xl sm:rounded-3xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="mb-4 flex items-center justify-between">
+        <div className="sticky -top-5 z-10 -mx-5 -mt-5 mb-4 flex items-center justify-between rounded-t-3xl bg-white px-5 pt-5 pb-2">
           <h2 className="text-lg font-bold">{title}</h2>
-          <button onClick={onClose} className="rounded-full p-2 text-stone-500 hover:bg-stone-100" aria-label="Fermer">
+          <button onClick={onClose} className="rounded-full p-2 text-stone-500 transition hover:bg-stone-100 active:scale-90" aria-label="Fermer">
             ✕
           </button>
         </div>
         {children}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
 
