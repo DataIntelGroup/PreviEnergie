@@ -1,4 +1,6 @@
-// Recharge prépayée : photo du reçu ou du SMS lue par l'IA, ou saisie (BF-07).
+// Recharge prépayée : reçu (photo, capture, PDF) ou SMS lu sur le téléphone,
+// sans IA payante, ou saisie à la main (BF-07).
+import type { ReceiptRead } from "@shared/lecture-recu.ts";
 import { currentCycleKey } from "@shared/prevision.ts";
 import { PAYMENT_LABELS, PAYMENT_METHODS, type PaymentMethod } from "@shared/validation.ts";
 import { type FormEvent, useEffect, useState } from "react";
@@ -6,27 +8,15 @@ import { Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { CutoffQuestion } from "@/components/CutoffQuestion";
 import { AccessBanner } from "@/components/AccessBanner";
 import { MeterPicker } from "@/components/MeterPicker";
-import { PhotoCapture, type ReadResponse } from "@/components/PhotoCapture";
+import { type DocumentResult, LectureDocument } from "@/components/LectureDocument";
 import { Button, Card, Field, Input, Notice, PageTitle, Select, Sheet, useToast } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { toEngine, useData } from "@/lib/data";
-import { fromLocalInput, toLocalInput } from "@/lib/format";
+import { fcfa, fromLocalInput, toLocalInput } from "@/lib/format";
 import type { CompressedPhoto } from "@/lib/photo";
 import { errorMessage, supabase } from "@/lib/supabase";
 import { R, withQuery } from "@/lib/routes";
 
-interface ReceiptRead {
-  lisible: boolean;
-  kwh: number | null;
-  montant_fcfa: number | null;
-  code: string | null;
-  moyen_paiement: PaymentMethod | null;
-  date: string | null;
-  confiance: number;
-  remarque: string;
-}
-
-const TIPS = ["Reçu papier, capture du SMS de confirmation ou de l'application de paiement.", "Le code et les kWh doivent être bien lisibles."];
 const LEVEL_TYPES = ["niveau_j5", "niveau_j2", "veille", "veille_rappel"];
 const toNumber = (s: string) => Number(s.replace(",", ".").replace(/\s/g, ""));
 
@@ -39,6 +29,7 @@ export default function Recharge() {
   const meter = selectedMeter;
   const [step, setStep] = useState<"photo" | "form">("photo");
   const [photo, setPhoto] = useState<CompressedPhoto | null>(null);
+  const [doc, setDoc] = useState<DocumentResult | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [kwhValue, setKwh] = useState("");
   const [amount, setAmount] = useState("");
@@ -87,19 +78,26 @@ export default function Recharge() {
     );
   }
 
-  function onRead(p: CompressedPhoto, read: ReadResponse<ReceiptRead>) {
-    setPhoto(p);
+  function onRead(d: DocumentResult) {
+    setDoc(d);
+    setPhoto(d.photo);
     setStep("form");
-    const r = read.result;
-    if (r && (r.kwh !== null || r.montant_fcfa !== null)) {
-      if (r.kwh !== null) setKwh(String(r.kwh).replace(".", ","));
-      if (r.montant_fcfa !== null) setAmount(String(Math.round(r.montant_fcfa)));
-      if (r.code) setCode(r.code);
-      if (r.moyen_paiement) setMethod(r.moyen_paiement);
-      if (r.date && !Number.isNaN(Date.parse(r.date)) && Date.parse(r.date) <= Date.now()) setAt(toLocalInput(new Date(r.date)));
-      setNote(r.confiance < 0.7 ? "Lecture incertaine : vérifie chaque champ." : "Informations lues sur la photo. Vérifie-les puis confirme.");
+    const r = d.receipt;
+    if (!r || r.found === 0) {
+      setNote("Je n'ai trouvé aucun chiffre utile sur ce document. Complète les champs.");
+      return;
+    }
+    if (r.kwh !== null) setKwh(String(r.kwh).replace(".", ","));
+    if (r.amountFcfa !== null) setAmount(String(Math.round(r.amountFcfa)));
+    if (r.code) setCode(r.code);
+    if ((PAYMENT_METHODS as readonly string[]).includes(r.source)) setMethod(r.source as PaymentMethod);
+    if (r.date && Date.parse(r.date) <= Date.now()) setAt(toLocalInput(new Date(r.date)));
+    if (r.kind === "paiement_facture") {
+      setNote("Ce reçu est le paiement d'une facture postpayée, pas un achat de kWh. Enregistre-le plutôt dans les factures d'un compteur postpayé.");
+    } else if (r.consistent) {
+      setNote("Reçu lu et montant vérifié : le détail tombe juste. Vérifie quand même puis confirme.");
     } else {
-      setNote(r?.remarque || read.message || "Je n'ai pas réussi à lire le reçu. Complète les champs.");
+      setNote(r.found >= 3 ? "Reçu lu. Vérifie les champs puis confirme." : "Lecture partielle : complète les champs manquants.");
     }
   }
 
@@ -127,7 +125,7 @@ export default function Recharge() {
         amount_fcfa: Math.round(a),
         code: code.trim() || null,
         payment_method: method || null,
-        source: photo ? "photo" : "manuel",
+        source: doc?.method === "texte" ? "sms" : doc ? "photo" : "manuel",
         photo_path: photoPath,
       });
       if (error) throw error;
@@ -154,13 +152,13 @@ export default function Recharge() {
       <PageTitle>Nouvelle recharge</PageTitle>
       <MeterPicker />
       {step === "photo" ? (
-        <Card className="space-y-4">
-          <PhotoCapture<ReceiptRead> kind="recu" meterKind={meter.kind} label="Photographier le reçu" tips={TIPS} onRead={onRead} />
-          <Button variant="secondary" className="w-full" onClick={() => setStep("form")}>Saisir à la main</Button>
+        <Card>
+          <LectureDocument kind="recu" onResult={onRead} onManual={() => setStep("form")} />
         </Card>
       ) : (
         <form onSubmit={(e) => void submit(e)} className="space-y-4" noValidate>
-          {note && <Notice tone={note.startsWith("Informations") ? "success" : "warning"}>{note}</Notice>}
+          {note && <Notice tone={doc?.receipt?.consistent && doc.receipt.kind !== "paiement_facture" ? "success" : "warning"}>{note}</Notice>}
+          {doc?.receipt && <Detail r={doc.receipt} />}
           <Card className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <Field label="kWh achetés">
@@ -189,6 +187,21 @@ export default function Recharge() {
           </Card>
           {error && <Notice tone="error">{error}</Notice>}
           <Button type="submit" loading={busy} className="w-full">Enregistrer la recharge</Button>
+          {doc && (
+            <Button
+              type="button"
+              variant="ghost"
+              className="w-full"
+              onClick={() => {
+                setDoc(null);
+                setPhoto(null);
+                setNote(null);
+                setStep("photo");
+              }}
+            >
+              Lire un autre document
+            </Button>
+          )}
           <p className="text-center text-sm text-stone-500">Pense à faire un relevé après avoir saisi le code dans le compteur.</p>
         </form>
       )}
@@ -197,5 +210,45 @@ export default function Recharge() {
         {askCut && <CutoffQuestion meterId={meter.id} cycleKey={askCut} question="As-tu été coupé avant cette recharge ?" onDone={() => navigate(R.app, { replace: true })} />}
       </Sheet>
     </div>
+  );
+}
+
+/** Détail lu sur un reçu CIE : ce que paie vraiment chaque kWh. */
+function Detail({ r }: { r: ReceiptRead }) {
+  const b = r.breakdown;
+  const rows: [string, number | null][] = [
+    ["Énergie", b.energie],
+    ["Prime fixe", b.primeFixe],
+    ["Redevance RTI", b.rti],
+    ["Électrification rurale", b.rer],
+    ["Ordures ménagères", b.teom],
+    ["Dette reprise", b.dette],
+  ];
+  const shown = rows.filter(([, v]) => v !== null && v > 0);
+  if (shown.length < 2) return null;
+  const perKwh = r.amountFcfa && r.kwh ? r.amountFcfa / r.kwh : null;
+  return (
+    <Card className="space-y-2 text-sm">
+      <p className="font-semibold text-stone-900">Détail du reçu</p>
+      <dl className="divide-y divide-stone-100">
+        {shown.map(([label, v]) => (
+          <div key={label} className="flex justify-between py-1.5">
+            <dt className="text-stone-600">{label}</dt>
+            <dd className="tabular font-medium">{fcfa(v)}</dd>
+          </div>
+        ))}
+        {b.tva !== null && (
+          <div className="flex justify-between py-1.5 text-stone-500">
+            <dt>dont TVA</dt>
+            <dd className="tabular">{fcfa(b.tva)}</dd>
+          </div>
+        )}
+        <div className="flex justify-between py-1.5 font-semibold">
+          <dt>Total payé {r.consistent && <span className="text-emerald-600">✓</span>}</dt>
+          <dd className="tabular">{fcfa(r.amountFcfa)}</dd>
+        </div>
+      </dl>
+      {perKwh && <p className="text-stone-500">Prix réel : {fcfa(perKwh)} par kWh, taxes comprises.</p>}
+    </Card>
   );
 }

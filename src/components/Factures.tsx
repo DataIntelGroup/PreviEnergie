@@ -1,4 +1,4 @@
-// Factures postpayées (BF-14) : saisie par photo (lue par l'IA) ou à la main,
+// Factures postpayées (BF-14) : photo ou PDF lu sur le téléphone, ou saisie,
 // liste et suppression. Elles alimentent l'estimation de la prochaine facture.
 import { billPricing } from "@shared/facture.ts";
 import { type FormEvent, useEffect, useState } from "react";
@@ -10,23 +10,8 @@ import { errorMessage, supabase } from "@/lib/supabase";
 import type { BillRow, Meter } from "@/lib/types";
 import { toBill } from "./Facture";
 import { Icon } from "./icons";
-import { PhotoCapture, type ReadResponse } from "./PhotoCapture";
+import { type DocumentResult, LectureDocument } from "./LectureDocument";
 import { Button, Card, Field, Input, Notice, Sheet, useToast } from "./ui";
-
-interface BillRead {
-  lisible: boolean;
-  periode_debut: string | null;
-  periode_fin: string | null;
-  index_ancien: number | null;
-  index_nouveau: number | null;
-  kwh: number | null;
-  montant_total_fcfa: number | null;
-  prime_fixe_ttc_fcfa: number | null;
-  autres_taxes_fcfa: number | null;
-  date_limite: string | null;
-  confiance: number;
-  remarque: string;
-}
 
 const numOrNull = (v: string) => {
   const n = Number(v.replace(",", ".").replace(/\s/g, ""));
@@ -53,26 +38,29 @@ function BillForm({ meter, onDone }: { meter: Meter; onDone: () => void }) {
     if (iS !== null && iE !== null && iE >= iS) setF((x) => ({ ...x, kwh: str(Math.round((iE - iS) * 100) / 100) }));
   }, [iS, iE]);
 
-  function onRead(p: CompressedPhoto, read: ReadResponse<BillRead>) {
-    setPhoto(p);
+  function onRead(d: DocumentResult) {
+    setPhoto(d.photo);
     setStep("form");
-    const r = read.result;
-    if (r && r.lisible) {
-      const fixed = (r.prime_fixe_ttc_fcfa ?? 0) + (r.autres_taxes_fcfa ?? 0);
-      setF({
-        start: validDate(r.periode_debut),
-        end: validDate(r.periode_fin),
-        indexStart: str(r.index_ancien),
-        indexEnd: str(r.index_nouveau),
-        kwh: str(r.kwh),
-        amount: str(r.montant_total_fcfa),
-        fixed: fixed > 0 ? String(Math.round(fixed)) : "",
-        due: validDate(r.date_limite),
-      });
-      setNote(r.confiance < 0.7 ? "Lecture incertaine : vérifie chaque champ." : "Facture lue. Vérifie les champs puis enregistre.");
-    } else {
-      setNote(r?.remarque || read.message || "Je n'ai pas réussi à lire la facture. Complète les champs.");
+    const r = d.bill;
+    if (!r || r.found === 0) {
+      setNote("Je n'ai pas réussi à lire la facture. Complète les champs.");
+      return;
     }
+    setF({
+      start: validDate(r.periodStart),
+      end: validDate(r.periodEnd),
+      indexStart: str(r.indexStart),
+      indexEnd: str(r.indexEnd),
+      kwh: str(r.kwh),
+      amount: str(r.amountFcfa),
+      fixed: r.fixedFcfa ? String(Math.round(r.fixedFcfa)) : "",
+      due: validDate(r.dueDate),
+    });
+    setNote(
+      r.found >= 4 && r.indexConsistent !== false
+        ? `Facture lue${r.indexConsistent ? ", index vérifiés" : ""}. Vérifie les champs puis enregistre.`
+        : "Lecture partielle : complète les champs manquants.",
+    );
   }
 
   async function submit(e: FormEvent) {
@@ -119,16 +107,7 @@ function BillForm({ meter, onDone }: { meter: Meter; onDone: () => void }) {
 
   if (step === "photo") {
     return (
-      <div className="space-y-4">
-        <PhotoCapture<BillRead>
-          kind="facture"
-          meterKind="postpaid"
-          label="Photographier la facture"
-          tips={["Toute la facture dans le cadre, bien à plat et éclairée.", "Le nom et l'adresse ne sont pas lus."]}
-          onRead={onRead}
-        />
-        <Button variant="secondary" className="w-full" onClick={() => setStep("form")}>Saisir à la main</Button>
-      </div>
+      <LectureDocument kind="facture" onResult={onRead} onManual={() => setStep("form")} />
     );
   }
 

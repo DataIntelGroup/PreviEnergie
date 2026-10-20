@@ -16,6 +16,7 @@ Référence fonctionnelle : [docs/EXPRESSION_DE_BESOIN.md](docs/EXPRESSION_DE_BE
 
 Points clés :
 - La prévision est calculée dans le navigateur pour un affichage immédiat, et sur le serveur chaque heure pour les alertes, avec le même code.
+- **Reçus et factures lus sans IA payante** : `src/lib/lecture.ts` lit le document sur le téléphone (texte d'un PDF avec pdf.js, reconnaissance de caractères sur une image avec Tesseract.js, modèle français téléchargé une fois depuis jsDelivr, ou SMS collé), puis `_shared/lecture-recu.ts` en extrait les chiffres par des règles : montant, kWh, code à 20 chiffres, date, moyen de paiement, détail des taxes (contrôle énergie + taxes = montant) ; pour une facture, période, index (contrôle nouveau − ancien = consommation), total, part fixe, date limite. Les deux bibliothèques ne se chargent qu'à la première lecture. `npm run eval:lecture` mesure la lecture sur les exemples privés de `docs/prive/recus/` (jamais versionnés). La photo du compteur reste lue par `lire-photo`.
 - Marge de sécurité de 20 % : on suppose 20 % de consommation en plus, l'alerte part un peu tôt.
 - Une alerte par type, par cycle de recharge et par canal : garanti par une contrainte unique en base, la ligne est réservée avant l'envoi.
 - Un paiement n'active une offre qu'après revérification du statut, du montant et de la devise auprès de CinetPay. La tâche horaire revérifie aussi les paiements restés en attente.
@@ -29,7 +30,7 @@ Pas d'offre gratuite permanente : **14 jours d'essai** à l'inscription (réglab
 ## V1 (2026-10-20)
 
 - **Partage de compteur (BF-15)** : le propriétaire invite par email (5 personnes au plus), en « lecteur » ou « contributeur ». L'invité accepte depuis son compte ; il reçoit les alertes du compteur s'il le souhaite. Règles d'accès : `can_view_meter` / `can_edit_meter` (migration 0006).
-- **Facture postpayée (BF-14)** : l'abonné enregistre sa facture CIE (photo lue par l'IA ou saisie). On en tire la période (bimestrielle en général), la part fixe (prime fixe et taxes) et le prix réel du kWh, TVA comprise ; l'estimation suivante combine le nouvel index de la facture et les relevés (`_shared/facture.ts`). Aucun barème CIE n'est codé.
+- **Facture postpayée (BF-14)** : l'abonné enregistre sa facture CIE (photo ou PDF lu sur le téléphone, ou saisie). On en tire la période (bimestrielle en général), la part fixe (prime fixe et taxes) et le prix réel du kWh, TVA comprise ; l'estimation suivante combine le nouvel index de la facture et les relevés (`_shared/facture.ts`). Aucun barème CIE n'est codé.
 - **Bilan hebdomadaire (BF-21)** : chaque lundi à 8 h par défaut (réglable), consommation des 7 derniers jours, évolution et recharges (`_shared/bilan.ts`). Désactivable par l'abonné.
 
 ## Commandes
