@@ -6,6 +6,7 @@
 //   npm run deploy -- functions           déploiement des fonctions Edge
 //   npm run deploy -- cron                tâche horaire des alertes (pg_cron + pg_net)
 //   npm run deploy -- netlify             construit et met en ligne l'application sur Netlify
+//   npm run deploy -- site <url>          adresse publique (Vercel…) vers APP_URL et l'authentification
 //   npm run deploy -- admin <email>       désigne un administrateur
 //   npm run deploy -- status              état de la base et des fonctions
 //   npm run deploy -- all                 db, auth, secrets, functions, cron
@@ -471,6 +472,21 @@ async function netlify() {
   }
 }
 
+// ---------------------------------------------------------------- adresse publique
+// Hébergement fait ailleurs (Vercel, par import du dépôt GitHub) : on reporte
+// son adresse dans APP_URL, les origines autorisées et l'authentification.
+async function site(url) {
+  if (!url || !/^https:\/\/[^/\s]+$/.test(url.replace(/\/$/, ""))) {
+    throw new Error("Usage : npm run deploy -- site https://previenergie.vercel.app");
+  }
+  const clean = url.replace(/\/$/, "");
+  setEnv("APP_URL", clean);
+  setEnv("APP_ORIGINS", [clean, "http://localhost:5173", "http://localhost:4173"].join(","));
+  await secrets();
+  await auth();
+  console.log(`Adresse publique réglée : ${clean}`);
+}
+
 // ---------------------------------------------------------------- administrateur
 async function admin(email) {
   if (!email) throw new Error("Usage : npm run deploy -- admin prenom@exemple.com");
@@ -500,7 +516,7 @@ async function status() {
 }
 
 const [step, arg] = process.argv.slice(2);
-const steps = { purge, db: migrate, auth, secrets, functions, cron, netlify, admin: () => admin(arg), status };
+const steps = { purge, db: migrate, auth, secrets, functions, cron, netlify, site: () => site(arg), admin: () => admin(arg), status };
 try {
   if (step === "all") {
     for (const s of ["db", "auth", "secrets", "functions", "cron"]) {
@@ -510,7 +526,7 @@ try {
   } else if (steps[step]) {
     await steps[step]();
   } else {
-    console.log("Étapes : purge --oui, db, auth, secrets, functions, cron, netlify, admin <email>, status, all");
+    console.log("Étapes : purge --oui, db, auth, secrets, functions, cron, netlify, site <url>, admin <email>, status, all");
   }
 } catch (e) {
   console.error(`\nErreur : ${e.message}`);
