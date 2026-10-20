@@ -4,7 +4,7 @@ import type { ReactNode } from "react";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data";
-import { useInstall } from "@/lib/install";
+import { promptInstall, useInstall } from "@/lib/install";
 import { R } from "@/lib/routes";
 import { Icon, type IconName } from "./icons";
 import { Independence } from "./ui";
@@ -81,11 +81,12 @@ function PlanCard() {
   );
 }
 
+// Dans l'app, seulement quand l'invite native existe : le guide complet est sur la page d'accueil.
 function InstallLink() {
-  const { canPrompt, install } = useInstall();
+  const { canPrompt } = useInstall();
   if (!canPrompt) return null;
   return (
-    <button onClick={() => void install()} className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-stone-600 hover:bg-brand-50">
+    <button onClick={() => void promptInstall()}className="flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-semibold text-stone-600 hover:bg-brand-50">
       <Icon name="download" className="h-5 w-5" /> Installer l'application
     </button>
   );

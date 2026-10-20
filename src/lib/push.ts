@@ -1,14 +1,17 @@
 // Abonnement aux notifications Web Push. Sur iPhone, il faut iOS 16.4 ou
 // plus et l'application ajoutée à l'écran d'accueil.
+import { isIosDevice } from "./install-detect";
 import { supabase } from "./supabase";
 
 const VAPID = import.meta.env.VITE_VAPID_PUBLIC_KEY as string | undefined;
 
 export type PushState = "unsupported" | "ios-install" | "denied" | "off" | "on" | "unconfigured";
 
-export const isIos = () => /iphone|ipad|ipod/i.test(navigator.userAgent);
+export const isIos = () => isIosDevice(navigator);
+/** L'app tourne-t-elle installée (fenêtre à part, sans barre d'adresse) ? */
 export const isStandalone = () =>
-  window.matchMedia("(display-mode: standalone)").matches || (navigator as { standalone?: boolean }).standalone === true;
+  ["standalone", "minimal-ui", "fullscreen", "window-controls-overlay"].some((m) => window.matchMedia(`(display-mode: ${m})`).matches) ||
+  (navigator as { standalone?: boolean }).standalone === true;
 
 function urlBase64ToUint8Array(base64: string): Uint8Array<ArrayBuffer> {
   const padding = "=".repeat((4 - (base64.length % 4)) % 4);

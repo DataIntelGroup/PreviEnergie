@@ -8,9 +8,18 @@ declare const self: ServiceWorkerGlobalScope & { __WB_MANIFEST: (string | { url:
 cleanupOutdatedCaches();
 precacheAndRoute(self.__WB_MANIFEST);
 
-// Navigation hors ligne : on sert la page d'accueil mise en cache.
+// Ce qui est mis en cache : uniquement les fichiers de l'application (JS,
+// CSS, HTML, icônes) de la version en cours, remplacés à chaque mise en
+// ligne. Jamais les données : les appels à Supabase passent toujours par le
+// réseau, on ne peut donc pas afficher un solde ou un relevé périmé.
+
+// Navigation : le réseau d'abord (la page la plus récente), et hors ligne la
+// page de l'application mise en cache. « / » et « /index.html » sont déjà
+// servis par le précache ci-dessus.
 self.addEventListener("fetch", (event) => {
   if (event.request.mode !== "navigate") return;
+  const { pathname } = new URL(event.request.url);
+  if (pathname === "/" || pathname === "/index.html") return;
   event.respondWith(
     fetch(event.request).catch(async () => (await caches.match("/index.html")) ?? Response.error()),
   );
