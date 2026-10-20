@@ -39,6 +39,8 @@ export interface Settings {
   defaultPriceKwh: number;
   /** Types d'alerte autorisés par canal (le SMS reste réservé à l'urgent). */
   channelTypes: Record<Channel, AlertType[]>;
+  /** Durée de l'essai gratuit à l'inscription, en jours (appliquée aux nouveaux comptes). */
+  trialDays: number;
   /** Bilan hebdomadaire (BF-21) : jour (0 = dimanche, 1 = lundi…) et heure d'envoi. */
   weeklySummary: { weekday: number; time: string };
   /** Coûts unitaires en FCFA, pour le tableau des coûts et de la marge. */
@@ -62,6 +64,7 @@ export const DEFAULT_SETTINGS: Settings = {
     whatsapp: ["niveau_j5", "niveau_j2", "veille", "veille_rappel", "anomalie", "releve"],
     sms: ["niveau_j2", "veille"],
   },
+  trialDays: 7,
   weeklySummary: { weekday: 1, time: "08:00" },
   unitCosts: { whatsapp: 30, sms: 25, email: 0.5, aiRead: 6, push: 0 },
   templates: {

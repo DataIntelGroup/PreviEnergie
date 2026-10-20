@@ -3,6 +3,7 @@
 // La valeur lue est toujours proposée à l'utilisateur pour confirmation.
 import Anthropic from "npm:@anthropic-ai/sdk@0.135.0";
 import { adminClient, env, handler, HttpError, json, readJson, requireEnv, requireUser } from "../_shared/serveur.ts";
+import { accessStatus } from "../_shared/acces.ts";
 import { loadSettings } from "../_shared/donnees.ts";
 import { PAYMENT_METHODS } from "../_shared/validation.ts";
 
@@ -106,6 +107,10 @@ Deno.serve(handler(async (req) => {
   if (body.image.length > MAX_BASE64) throw new HttpError(413, "Photo trop lourde, réessaie");
 
   const db = adminClient();
+  const { data: profile } = await db.from("profiles").select("plan_code, plan_expires_at, trial_ends_at").eq("id", user.id).maybeSingle();
+  if (!profile || accessStatus(profile, new Date()) === "expired") {
+    throw new HttpError(403, "Ton essai gratuit est terminé : choisis une offre pour continuer tes relevés.");
+  }
   const since = new Date(Date.now() - 86_400_000).toISOString();
   const { count, error: countError } = await db
     .from("ai_reads")

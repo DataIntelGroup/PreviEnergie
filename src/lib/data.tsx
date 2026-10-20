@@ -1,6 +1,7 @@
 // Données de l'utilisateur connecté : offres, réglages, compteurs, et
 // historique de chaque compteur (mis en cache le temps de la session).
 import { computeForecast, type Forecast, type Reading, type Recharge } from "@shared/prevision.ts";
+import { type AccessStatus, accessStatus, trialDaysLeft } from "@shared/acces.ts";
 import { resolveSettings, type Settings } from "@shared/reglages.ts";
 import { createContext, type ReactNode, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { FullPageSpinner } from "@/components/ui";
@@ -31,6 +32,8 @@ interface DataState {
   access: (meter: Meter) => MeterAccess;
   refreshShares: () => Promise<void>;
   currentPlan: Plan | null;
+  /** Offre payée, essai en cours, ou essai terminé (lecture seule). */
+  subscription: { status: AccessStatus; trialDaysLeft: number | null; readOnly: boolean };
   selectedMeter: Meter | null;
   selectMeter: (id: string) => void;
   refreshMeters: () => Promise<Meter[]>;
@@ -154,6 +157,12 @@ export function DataProvider({ children }: { children: ReactNode }) {
   );
   const selectedMeter = meters.find((m) => m.id === selectedId) ?? meters[0] ?? null;
   const currentPlan = plans.find((p) => p.code === effectivePlanCode(profile)) ?? null;
+  const subscription = useMemo(() => {
+    if (!profile) return { status: "expired" as AccessStatus, trialDaysLeft: null, readOnly: true };
+    const now = new Date();
+    const status = accessStatus(profile, now);
+    return { status, trialDaysLeft: trialDaysLeft(profile, now), readOnly: status === "expired" };
+  }, [profile]);
   const ownedMeters = useMemo(() => meters.filter((m) => m.user_id === profile?.id), [meters, profile?.id]);
   const invitations = useMemo(
     () => shares.filter((s) => s.status === "pending" && s.owner_id !== profile?.id && s.email === profile?.email?.toLowerCase()),
@@ -176,6 +185,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     access,
     refreshShares,
     currentPlan,
+    subscription,
     selectedMeter,
     selectMeter: (id) => {
       setSelectedId(id);
@@ -190,7 +200,7 @@ export function DataProvider({ children }: { children: ReactNode }) {
     loadHistory,
     afterChange,
     error,
-  }), [ready, plans, settings, meters, ownedMeters, shares, invitations, access, refreshShares, currentPlan, selectedMeter, refreshMeters, histories, loadHistory, afterChange, error]);
+  }), [ready, plans, settings, meters, ownedMeters, shares, invitations, access, refreshShares, currentPlan, subscription, selectedMeter, refreshMeters, histories, loadHistory, afterChange, error]);
 
   // Rien ne s'affiche avant le premier chargement : sinon une page ouverte
   // directement (/releve) croirait qu'il n'y a aucun compteur.

@@ -2,6 +2,7 @@
 import { type FormEvent, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
 import { Icon } from "@/components/icons";
+import { AccessBanner } from "@/components/AccessBanner";
 import { Invitations, SharedWithMe, ShareManager } from "@/components/Partage";
 import { Button, Card, Field, Input, Notice, PageTitle, Select, Sheet, useToast } from "@/components/ui";
 import { useData } from "@/lib/data";
@@ -64,7 +65,7 @@ function MeterForm({ meter, onDone }: { meter?: Meter; onDone: (m: Meter) => voi
 }
 
 export default function Compteurs() {
-  const { ownedMeters, shares, currentPlan, refreshMeters, selectMeter } = useData();
+  const { ownedMeters, shares, currentPlan, refreshMeters, selectMeter, subscription } = useData();
   const [params] = useSearchParams();
   const first = params.get("premier") === "1";
   const navigate = useNavigate();
@@ -76,7 +77,7 @@ export default function Compteurs() {
   const [busy, setBusy] = useState(false);
   const limit = currentPlan?.max_meters ?? 1;
   // Seuls mes compteurs comptent dans la limite ; ceux qu'on me partage non.
-  const full = ownedMeters.length >= limit;
+  const full = ownedMeters.length >= limit || subscription.readOnly;
   const shareCount = (id: string) => shares.filter((s) => s.meter_id === id).length;
 
   async function remove(m: Meter) {
@@ -93,9 +94,10 @@ export default function Compteurs() {
     <div>
       <PageTitle action={!full && <Button variant="secondary" onClick={() => setAdding(true)}>Ajouter</Button>}>Mes compteurs</PageTitle>
 
+      <AccessBanner />
       <Invitations />
 
-      {ownedMeters.length === 0 && !adding && (
+      {ownedMeters.length === 0 && !adding && !subscription.readOnly && (
         <Card className="text-center">
           <p className="text-stone-700">Ajoute ton premier compteur pour commencer.</p>
           <Button className="mt-4 w-full" onClick={() => setAdding(true)}>Ajouter un compteur</Button>

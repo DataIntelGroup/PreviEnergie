@@ -22,6 +22,8 @@ export interface Profile {
   quiet_start: string;
   quiet_end: string;
   weekly_summary: boolean;
+  /** Fin de l'essai gratuit (7 jours à l'inscription). */
+  trial_ends_at: string;
   created_at: string;
 }
 

@@ -120,7 +120,7 @@ async function main() {
     await db.query("update plans set active = false where code = 'famille_pro'");
     const { rows } = await anon((q) => q("select code from plans order by sort"));
     await db.query("update plans set active = true where code = 'famille_pro'");
-    assert(rows.map((r) => r.code).join() === "gratuit,essentiel,entreprise", rows.map((r) => r.code).join());
+    assert(rows.map((r) => r.code).join() === "gratuit,decouverte,essentiel,entreprise", rows.map((r) => r.code).join());
     await rejects(() => anon((q) => q("update plans set price_fcfa = 0")), /42501|permission/);
   });
   await check("anon ne lit pas les réglages", () => rejects(() => anon((q) => q("select * from settings")), /42501|permission/));
@@ -382,6 +382,39 @@ async function main() {
     await user(OWNER, (q) => q("update profiles set weekly_summary = false where id = $1", [OWNER]));
     const { rows } = await db.query("select weekly_summary from profiles where id = $1", [OWNER]);
     assert(rows[0].weekly_summary === false);
+  });
+
+  console.log("\nEssai gratuit de 7 jours et lecture seule");
+  await check("un nouveau compte a 7 jours d'essai", async () => {
+    const id = await newUser("essai@previenergie.test");
+    const { rows } = await db.query("select extract(epoch from trial_ends_at - now()) / 86400 as d from profiles where id = $1", [id]);
+    assert(Math.abs(Number(rows[0].d) - 7) < 0.01, `essai de ${rows[0].d} jours`);
+  });
+  await check("la durée d'essai se règle dans le back-office", async () => {
+    await user(ADMIN, (q) => q(`select admin_set_setting('trialDays', '3')`));
+    const id = await newUser("essai3@previenergie.test");
+    const { rows } = await db.query("select extract(epoch from trial_ends_at - now()) / 86400 as d from profiles where id = $1", [id]);
+    assert(Math.abs(Number(rows[0].d) - 3) < 0.01, `essai de ${rows[0].d} jours`);
+    await rejects(() => user(ADMIN, (q) => q(`select admin_set_setting('trialDays', '400')`)), /entre 0 et 90/);
+    await user(ADMIN, (q) => q(`select admin_set_setting('trialDays', null)`));
+  });
+  await check("l'utilisateur ne prolonge pas son essai", () =>
+    rejects(() => user(OWNER, (q) => q("update profiles set trial_ends_at = now() + interval '1 year' where id = $1", [OWNER])), /42501|permission/));
+  await check("le statut d'un autre compte n'est pas interrogeable", () =>
+    rejects(() => user(OWNER, (q) => q("select access_status($1)", [GUEST])), /42501|permission/));
+  await check("essai terminé sans offre : lecture seule", async () => {
+    await db.query("update profiles set trial_ends_at = now() - interval '1 minute', plan_code = 'gratuit', plan_expires_at = null where id = $1", [OWNER]);
+    const seen = await user(OWNER, (q) => q("select count(*)::int n from readings where meter_id = $1", [shared]));
+    assert(seen.rows[0].n >= 1, "l'historique doit rester visible");
+    await rejects(() => user(OWNER, (q) => q("insert into readings (meter_id, value) values ($1, 40)", [shared])), /42501|row-level/);
+    await rejects(() => user(OWNER, (q) => q("insert into meters (name) values ('Autre')")), /42501|row-level|compteur/);
+  });
+  await check("une offre payée (Découverte, 300 FCFA) rouvre la saisie", async () => {
+    const plan = await db.query("select price_fcfa, max_meters from plans where code = 'decouverte'");
+    assert(plan.rows[0].price_fcfa === 300 && plan.rows[0].max_meters === 1);
+    await service((q) => q("insert into payments (user_id, plan_code, amount_fcfa, transaction_id) values ($1, 'decouverte', 300, 'TX-DEC')", [OWNER]));
+    await service((q) => q("select apply_payment('TX-DEC', 'accepted', 'wave', '{}')"));
+    await user(OWNER, (q) => q("insert into readings (meter_id, value) values ($1, 40)", [shared]));
   });
 
   console.log("\nNotifications push");

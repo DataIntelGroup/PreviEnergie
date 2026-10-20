@@ -2,6 +2,7 @@
 // alertes et du bilan hebdomadaire. Appelée chaque heure par pg_cron avec
 // l'en-tête x-cron-secret. Chaque compteur a un ou plusieurs destinataires :
 // son propriétaire et les membres d'un partage accepté (BF-15).
+import { accessStatus } from "../_shared/acces.ts";
 import { planAlerts, type SentAlert } from "../_shared/alertes.ts";
 import { weeklySummary } from "../_shared/bilan.ts";
 import { appLink, configuredChannels, type Recipient, send } from "../_shared/canaux.ts";
@@ -12,7 +13,7 @@ import { adminClient, env, handler, HttpError, json, requireEnv, safeEqual } fro
 import { DAY_MS } from "../_shared/temps.ts";
 
 const PROFILE_COLUMNS =
-  "id, first_name, email, phone, channels, whatsapp_consent_at, sms_consent_at, quiet_start, quiet_end, suspended, plan_code, plan_expires_at, weekly_summary";
+  "id, first_name, email, phone, channels, whatsapp_consent_at, sms_consent_at, quiet_start, quiet_end, suspended, plan_code, plan_expires_at, trial_ends_at, weekly_summary";
 
 interface ProfileRow {
   id: string;
@@ -27,6 +28,7 @@ interface ProfileRow {
   suspended: boolean;
   plan_code: string;
   plan_expires_at: string | null;
+  trial_ends_at: string;
   weekly_summary: boolean;
 }
 
@@ -156,6 +158,8 @@ Deno.serve(handler(async (req) => {
     forecastRows.push(forecastRow(meter, f, now));
     const weekly = weeklySummary(f.segments, meterRecharges, now);
     for (const to of [meter.profiles, ...(members.get(meter.id) ?? [])]) {
+      // Essai terminé sans offre payée : lecture seule, plus d'alertes.
+      if (accessStatus(to, now) === "expired") continue;
       const planned = planAlerts({
         now,
         meter: { id: meter.id, name: meter.name, kind: meter.kind, createdAt: meter.created_at },

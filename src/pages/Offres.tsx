@@ -3,6 +3,7 @@
 import { CHANNEL_LABELS } from "@shared/reglages.ts";
 import { useEffect, useRef, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+import { AccessBanner } from "@/components/AccessBanner";
 import { Button, Card, Notice, PageTitle, Spinner } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data";
@@ -80,6 +81,7 @@ export default function Offres() {
     <div className="space-y-4">
       <PageTitle>Offres</PageTitle>
       <p className="text-stone-600">Sans engagement, 30 jours par paiement. Wave, Orange Money, MTN MoMo ou Moov Money.</p>
+      <AccessBanner />
 
       {checking === "pending" && (
         <Notice className="flex items-center gap-2"><Spinner className="h-4 w-4" /> Vérification du paiement auprès de CinetPay…</Notice>
@@ -98,7 +100,8 @@ export default function Offres() {
       )}
 
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {plans.filter((p) => p.active).map((p) => {
+        {/* L'essai gratuit n'est pas une offre à choisir : il est donné à l'inscription. */}
+        {plans.filter((p) => p.active && p.price_fcfa > 0).map((p) => {
           const isCurrent = p.code === current;
           return (
             <Card key={p.code} className={isCurrent ? "ring-2 ring-brand-500" : ""}>

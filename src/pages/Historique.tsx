@@ -21,7 +21,7 @@ type Item =
 
 export default function Historique() {
   const { profile } = useAuth();
-  const { selectedMeter, currentPlan, afterChange, access } = useData();
+  const { selectedMeter, currentPlan, afterChange, access, subscription } = useData();
   const { forecast, history } = useForecast(selectedMeter);
   const toast = useToast();
   const [days, setDays] = useState<14 | 30>(14);
@@ -109,7 +109,7 @@ export default function Historique() {
         <BillsSection
           meter={selectedMeter}
           bills={history?.bills ?? []}
-          canEdit={access(selectedMeter) !== "lecteur"}
+          canEdit={access(selectedMeter) !== "lecteur" && !subscription.readOnly}
           canDelete={(b) => b.user_id === profile?.id || access(selectedMeter) === "proprietaire"}
           onChange={() => afterChange(selectedMeter.id)}
         />
