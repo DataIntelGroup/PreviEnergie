@@ -5,7 +5,7 @@ import { Link } from "react-router-dom";
 import { Gauge } from "@/components/Gauge";
 import { Icon } from "@/components/icons";
 import { Logo } from "@/components/Layout";
-import { useInstall } from "@/lib/install";
+import { InstallAppButton } from "@/components/InstallAppButton";
 import { R } from "@/lib/routes";
 
 export interface NavItem {
@@ -118,29 +118,6 @@ export function LandingHeader({ nav }: { nav: NavItem[] }) {
         </div>
       )}
     </header>
-  );
-}
-
-function InstallLink() {
-  const { canPrompt, needsIosGuide, install, installed } = useInstall();
-  const [help, setHelp] = useState(false);
-  if (installed) return null;
-  return (
-    <div className="text-[15px]">
-      <button
-        onClick={() => (canPrompt ? void install() : setHelp((h) => !h))}
-        className="inline-flex items-center gap-2.5 font-bold text-brand-700 transition hover:text-brand-800 active:scale-95"
-      >
-        <Icon name="download" className="h-5 w-5" /> Installer l'application
-      </button>
-      {help && (
-        <p className="animate-fade-up mt-2 max-w-md text-sm text-stone-600">
-          {needsIosGuide
-            ? "Dans Safari, touche Partager puis « Sur l'écran d'accueil »."
-            : "Sur Android, ouvre ce site dans Chrome puis « Installer l'application » dans le menu. Sur iPhone, dans Safari : Partager, puis « Sur l'écran d'accueil »."}
-        </p>
-      )}
-    </div>
   );
 }
 
@@ -257,7 +234,7 @@ export function Hero({ onHowItWorks }: { onHowItWorks: () => void }) {
               </li>
             ))}
           </ul>
-          <div className="mt-8"><InstallLink /></div>
+          <div className="mt-8"><InstallAppButton variant="link" /></div>
         </div>
 
         {/* Visuel */}

@@ -33,6 +33,26 @@ Pas d'offre gratuite permanente : **14 jours d'essai** à l'inscription (réglab
 - **Facture postpayée (BF-14)** : l'abonné enregistre sa facture CIE (photo ou PDF lu sur le téléphone, ou saisie). On en tire la période (bimestrielle en général), la part fixe (prime fixe et taxes) et le prix réel du kWh, TVA comprise ; l'estimation suivante combine le nouvel index de la facture et les relevés (`_shared/facture.ts`). Aucun barème CIE n'est codé.
 - **Bilan hebdomadaire (BF-21)** : chaque lundi à 8 h par défaut (réglable), consommation des 7 derniers jours, évolution et recharges (`_shared/bilan.ts`). Désactivable par l'abonné.
 
+## Application installable (PWA)
+
+- **Manifeste** (`vite.config.ts`, publié en `/manifest.webmanifest`) : `id: "/app"` (identité de l'app installée, à ne jamais changer), icônes 192 et 512 (plus une version « maskable » pour Android), fond crème `#fffaf5` pour l'écran de démarrage, orange `#ea580c` pour la barre d'état, raccourcis Relevé et Recharge, `related_applications` pour que Chrome sache dire si l'app est déjà installée. `VITE_SITE_URL` change l'adresse publique (défaut : https://previenergie.vercel.app).
+- **`InstallAppButton`** (`src/components/InstallAppButton.tsx`) ne montre « Installer l'application » que si le navigateur a fourni une vraie invite native (`beforeinstallprompt` : Chrome, Edge, Samsung Internet, Opera). Partout ailleurs, il propose « Comment installer » et ouvre le guide du navigateur détecté (`src/lib/install-detect.ts`, testé dans `tests/install.test.ts`) : Safari et autres navigateurs sur iPhone, navigateurs intégrés à WhatsApp, Facebook ou Instagram (ouvrir dans le vrai navigateur), Android, Windows, Mac. Déjà installée : un badge. Les navigateurs qui ne savent pas installer (Firefox sur ordinateur, Safari 16) sont signalés, avec le lien à copier.
+- **Service worker** (`src/sw.ts`) : seulement les fichiers de l'application de la version en cours, et les notifications. Aucune donnée n'est mise en cache : Supabase passe toujours par le réseau. Une nouvelle version s'installe en arrière-plan et s'applique quand on quitte l'app, sauf en pleine saisie (formulaire ouvert, relevé, recharge, connexion). Une app restée ouverte vérifie chaque heure et à chaque retour. Un onglet qui demanderait un fichier d'une ancienne version se recharge une fois (`vite:preloadError`) ; Vercel renvoie une vraie 404 pour un fichier `/assets/` disparu au lieu de la page HTML.
+- Le service worker n'est actif qu'en production : `npm run build && npm run preview` (http://localhost:4173) pour le tester.
+
+Critères d'acceptation, à vérifier sur appareil réel avant d'annoncer un système comme compatible :
+
+| Appareil | Attendu |
+|---|---|
+| Android, Chrome | bouton « Installer l'application » → invite native → icône PréviÉnergie, s'ouvre sans barre d'adresse sur `/app` |
+| Android, Samsung Internet / Firefox | invite native ou guide du menu, selon le navigateur |
+| iPhone, Safari (iOS 16.4+) | « Comment installer » → guide Partager › Sur l'écran d'accueil ; une fois installée, notifications activables dans Alertes |
+| iPhone, WhatsApp / Instagram | guide « ouvrir dans le navigateur » et lien à copier |
+| Windows, Chrome ou Edge | invite native, app dans le menu Démarrer, fenêtre à part |
+| Mac, Safari 17+ / Chrome | guide Fichier › Ajouter au Dock, ou invite native de Chrome |
+| Après installation | la page d'accueil affiche le badge « installée » (Chrome), jamais un bouton Installer |
+| Nouvelle mise en ligne | l'app installée prend la nouvelle version au retour suivant, sans perdre une saisie en cours |
+
 ## Commandes
 
 ```bash

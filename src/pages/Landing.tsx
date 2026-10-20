@@ -4,6 +4,7 @@ import { CHANNEL_LABELS } from "@shared/reglages.ts";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Icon, type IconName } from "@/components/icons";
+import { InstallAppButton } from "@/components/InstallAppButton";
 import { goToSection, Hero, LandingHeader } from "@/components/landing/Hero";
 import { Logo } from "@/components/Layout";
 import { fcfa } from "@/lib/format";
@@ -17,6 +18,13 @@ const NAV = [
   { href: "#fonctionnalites", label: "Fonctionnalités" },
   { href: "#tarifs", label: "Tarifs" },
   { href: "#questions", label: "Questions" },
+];
+
+// Navigateurs qui savent installer une application web.
+const INSTALL_PLATFORMS: { icon: IconName; title: string; text: string }[] = [
+  { icon: "phone", title: "iPhone et iPad", text: "Safari : Partager, puis « Sur l'écran d'accueil »." },
+  { icon: "download", title: "Android", text: "Chrome ou Samsung Internet, en un geste." },
+  { icon: "monitor", title: "Windows et Mac", text: "Chrome ou Edge ; Safari sur macOS Sonoma et plus." },
 ];
 
 const STEPS: { icon: IconName; title: string; text: string }[] = [
@@ -159,6 +167,37 @@ export default function Landing() {
               <p className="mt-1.5 text-sm text-stone-600">{f.text}</p>
             </div>
           ))}
+        </div>
+      </section>
+
+      {/* Installer l'application */}
+      <section id="installer" className="mx-auto max-w-6xl scroll-mt-20 px-5 pb-24">
+        <div className="reveal relative overflow-hidden rounded-[2rem] bg-gradient-to-br from-white via-[#fff4ea] to-brand-100 p-7 ring-1 ring-brand-100 sm:p-12">
+          <div className="pointer-events-none absolute -right-24 -bottom-24 h-80 w-80 rounded-full bg-[radial-gradient(circle,rgba(249,115,22,0.35),transparent_65%)] blur-xl" aria-hidden />
+          <div className="relative grid items-center gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+            <div>
+              <p className="text-sm font-bold tracking-wide text-brand-700 uppercase">Application</p>
+              <h2 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">PréviÉnergie sur ton écran d'accueil.</h2>
+              <p className="mt-4 max-w-lg text-lg text-stone-600">
+                Pas de store à visiter : installe l'application depuis ton navigateur. Elle s'ouvre en plein écran, se met à jour toute seule et pèse moins de 1 Mo.
+              </p>
+              <InstallAppButton className="mt-8 w-full sm:w-auto" />
+              <p className="mt-4 text-sm text-stone-500">Sur iPhone, l'installation est aussi ce qui permet de recevoir les alertes par notification.</p>
+            </div>
+            <ul className="grid gap-3">
+              {INSTALL_PLATFORMS.map((p, i) => (
+                <li key={p.title} className="reveal flex items-center gap-4 rounded-2xl bg-white/85 p-4 shadow-sm ring-1 ring-brand-100 backdrop-blur" style={{ transitionDelay: `${i * 80}ms` }}>
+                  <span className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-brand-600 text-white shadow-md shadow-brand-600/30">
+                    <Icon name={p.icon} className="h-6 w-6" />
+                  </span>
+                  <span>
+                    <span className="block font-bold text-stone-900">{p.title}</span>
+                    <span className="block text-sm text-stone-500">{p.text}</span>
+                  </span>
+                </li>
+              ))}
+            </ul>
+          </div>
         </div>
       </section>
 
