@@ -34,11 +34,25 @@ export function Button({
     <button
       {...props}
       disabled={props.disabled || loading}
-      className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-base font-semibold transition active:scale-[0.97] disabled:cursor-not-allowed disabled:active:scale-100 ${VARIANTS[variant]} ${className}`}
+      aria-busy={loading || undefined}
+      className={`inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-5 text-base font-semibold transition active:scale-[0.97] disabled:cursor-not-allowed disabled:active:scale-100 ${VARIANTS[variant]} ${loading ? "btn-loading" : ""} ${className}`}
     >
-      {loading && <Spinner className="h-4 w-4" />}
+      {loading && <BoltSpinner />}
       {children}
     </button>
+  );
+}
+
+/** Anneau qui tourne autour d'un éclair qui bat : l'état « en cours » des boutons. */
+function BoltSpinner() {
+  return (
+    <span className="relative grid h-5 w-5 place-items-center" aria-hidden>
+      <svg className="absolute inset-0 animate-spin" viewBox="0 0 24 24" fill="none">
+        <circle cx="12" cy="12" r="10" stroke="currentColor" strokeOpacity="0.25" strokeWidth="2.5" />
+        <path d="M22 12a10 10 0 0 0-10-10" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" />
+      </svg>
+      <svg className="btn-bolt h-2.5 w-2.5" viewBox="0 0 24 24" fill="currentColor"><path d="M13 2 3 14h9l-1 8 10-12h-9z" /></svg>
+    </span>
   );
 }
 
@@ -51,13 +65,44 @@ export function Spinner({ className = "h-6 w-6" }: { className?: string }) {
   );
 }
 
-export function FullPageSpinner() {
+const LOADER_MESSAGES = ["On allume la lumière…", "On lit ton compteur…", "On calcule tes jours de courant…"];
+
+/**
+ * Écran de chargement de marque, identique à celui d'index.html (mêmes
+ * classes, styles définis là-bas) : l'utilisateur voit un seul écran
+ * continu entre l'ouverture et l'app prête. `delay` : n'apparaît qu'après
+ * un court instant, pour ne pas clignoter quand le chargement est rapide.
+ */
+export function AppLoader({ message, delay = false }: { message?: string; delay?: boolean }) {
+  const messages = message ? [message] : LOADER_MESSAGES;
   return (
-    <div className="flex min-h-dvh items-center justify-center text-brand-600" role="status" aria-label="Chargement">
-      <Spinner className="h-10 w-10" />
+    <div className={`pe-splash ${delay ? "pe-splash--delay" : ""}`} role="status" aria-label={message ?? "Chargement de PréviÉnergie"}>
+      <div className="pe-splash__stage">
+        <div className="pe-splash__glow" />
+        <div className="pe-splash__mark">
+          <svg viewBox="0 0 512 512" aria-hidden>
+            <rect width="512" height="512" rx="112" fill="#ea580c" />
+            <circle cx="256" cy="256" r="168" fill="none" stroke="#fff" strokeOpacity="0.22" strokeWidth="28" />
+            <circle className="pe-arc" cx="256" cy="256" r="168" />
+            <path className="pe-bolt" d="M282 112 172 286h72l-22 114 112-178h-74z" />
+          </svg>
+        </div>
+        <span className="pe-splash__spark" />
+        <span className="pe-splash__spark" />
+        <span className="pe-splash__spark" />
+      </div>
+      <p className="pe-splash__brand">
+        Prévi<span>Énergie</span>
+      </p>
+      <div className={`pe-splash__msgs ${messages.length === 1 ? "pe-splash__msgs--one" : ""}`}>
+        {messages.map((m) => <span key={m}>{m}</span>)}
+      </div>
+      <div className="pe-splash__bar"><i /></div>
     </div>
   );
 }
+
+export const FullPageSpinner = () => <AppLoader />;
 
 export function Field({
   label,

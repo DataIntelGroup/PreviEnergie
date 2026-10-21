@@ -79,7 +79,7 @@ export default function Journal() {
         {loading && <div className="flex justify-center py-6 text-brand-600"><Spinner /></div>}
       </Card>
       {more && !loading && rows.length > 0 && (
-        <Button variant="secondary" className="w-full" onClick={() => void load(rows.at(-1)!.id)}>Plus ancien</Button>
+        <Button variant="secondary" className="w-full" loading={loading} onClick={() => void load(rows.at(-1)!.id)}>Plus ancien</Button>
       )}
     </div>
   );

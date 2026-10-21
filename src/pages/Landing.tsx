@@ -66,6 +66,10 @@ const FAQ = [
     a: "Ajoute ta dernière facture CIE, en photo ou à la main : on en tire ta période de facturation, la part fixe et le vrai prix du kWh, taxes comprises. Avec tes relevés d'index, PréviÉnergie estime ta prochaine facture avant de la recevoir.",
   },
   {
+    q: "Comment désinstaller l'application ?",
+    a: "Comme une autre app : sur iPhone, appui long sur l'icône puis « Supprimer l'app » ; sur Android, appui long puis « Désinstaller » ; sur ordinateur, ouvre PréviÉnergie, menu ⋮ ou … en haut de la fenêtre, puis « Désinstaller ». Ton compte et ton historique restent intacts : tu les retrouves en te reconnectant. Pour effacer définitivement tes données, utilise « Supprimer mon compte » dans Mon compte.",
+  },
+  {
     q: "Comment payer une offre ?",
     a: "Par Wave, Orange Money, MTN MoMo ou Moov Money, via CinetPay. Chaque compte commence par 14 jours d'essai gratuit. Les offres sont ensuite mensuelles et sans engagement : sans renouvellement, ton compte passe en lecture seule et ton historique reste visible.",
   },

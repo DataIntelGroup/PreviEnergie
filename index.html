@@ -16,9 +16,70 @@
     <meta name="apple-mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="PréviÉnergie" />
+    <!-- Écran de chargement : affiché avant même que le JavaScript arrive.
+         Les mêmes classes servent au composant AppLoader (src/components/ui.tsx),
+         pour que l'écran reste identique jusqu'à ce que l'app soit prête. -->
+    <style>
+      .pe-splash { position: fixed; inset: 0; z-index: 70; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.4rem; overflow: hidden;
+        background: radial-gradient(40rem 26rem at 50% 38%, rgb(251 146 60 / 0.28), transparent 65%), radial-gradient(30rem 20rem at 85% 110%, rgb(253 186 116 / 0.35), transparent 60%), #fffaf5;
+        font-family: "Plus Jakarta Sans", system-ui, sans-serif; color: #1c1917; }
+      .pe-splash--delay { animation: pe-appear 0.35s ease-out 0.18s both; }
+      .pe-splash__stage { position: relative; width: 132px; height: 132px; display: grid; place-items: center; }
+      .pe-splash__glow { position: absolute; inset: -34px; border-radius: 50%; background: conic-gradient(from 0deg, transparent, rgb(251 146 60 / 0.75), transparent 40%, rgb(234 88 12 / 0.6), transparent 75%); filter: blur(18px); animation: pe-spin 3.2s linear infinite; }
+      .pe-splash__mark { position: relative; width: 112px; height: 112px; border-radius: 30px; box-shadow: 0 24px 48px -16px rgb(194 65 12 / 0.6), inset 0 1px 0 rgb(255 255 255 / 0.25); animation: pe-float 2.6s ease-in-out infinite; }
+      .pe-splash__mark svg { width: 100%; height: 100%; display: block; }
+      .pe-arc { fill: none; stroke: #fff; stroke-width: 28; stroke-linecap: round; stroke-dasharray: 1056; transform-box: fill-box; transform-origin: center; animation: pe-fill 2.2s cubic-bezier(0.65, 0, 0.35, 1) infinite; }
+      .pe-bolt { fill: #fff; transform-box: fill-box; transform-origin: center; animation: pe-zap 2.2s ease-in-out infinite; }
+      .pe-splash__spark { position: absolute; width: 7px; height: 7px; border-radius: 50%; background: #fb923c; box-shadow: 0 0 12px 3px rgb(251 146 60 / 0.8); opacity: 0; animation: pe-spark 2.2s ease-out infinite; }
+      .pe-splash__spark:nth-of-type(1) { top: 6px; right: 4px; animation-delay: 0.6s; }
+      .pe-splash__spark:nth-of-type(2) { bottom: 10px; left: -2px; animation-delay: 1.2s; }
+      .pe-splash__spark:nth-of-type(3) { top: 42%; right: -10px; animation-delay: 1.7s; }
+      .pe-splash__brand { margin: 0.6rem 0 0; font-size: 1.65rem; font-weight: 800; letter-spacing: -0.02em; }
+      .pe-splash__brand span { color: #ea580c; }
+      .pe-splash__msgs { position: relative; height: 1.4rem; width: 18rem; text-align: center; font-size: 0.95rem; color: #78716c; }
+      .pe-splash__msgs span { position: absolute; inset: 0; opacity: 0; animation: pe-msg 6.6s ease-in-out infinite; }
+      .pe-splash__msgs span:nth-child(2) { animation-delay: 2.2s; }
+      .pe-splash__msgs span:nth-child(3) { animation-delay: 4.4s; }
+      .pe-splash__msgs--one span { animation: none; opacity: 1; }
+      .pe-splash__bar { width: 168px; height: 5px; border-radius: 99px; background: rgb(234 88 12 / 0.14); overflow: hidden; }
+      .pe-splash__bar i { display: block; height: 100%; width: 40%; border-radius: inherit; background: linear-gradient(90deg, #fdba74, #ea580c); box-shadow: 0 0 10px rgb(234 88 12 / 0.6); animation: pe-slide 1.3s ease-in-out infinite; }
+      @keyframes pe-spin { to { transform: rotate(360deg); } }
+      @keyframes pe-float { 50% { transform: translateY(-6px); } }
+      @keyframes pe-fill { 0% { stroke-dashoffset: 1056; transform: rotate(-90deg); } 55% { stroke-dashoffset: 0; transform: rotate(30deg); } 100% { stroke-dashoffset: -1056; transform: rotate(270deg); } }
+      @keyframes pe-zap { 0%, 40%, 100% { transform: scale(1); filter: none; } 50% { transform: scale(1.14) rotate(-4deg); filter: drop-shadow(0 0 22px #fff7ed); } 60% { transform: scale(0.98); } }
+      @keyframes pe-spark { 0% { opacity: 0; transform: scale(0.3); } 25% { opacity: 1; transform: scale(1); } 100% { opacity: 0; transform: scale(0.2) translateY(-18px); } }
+      @keyframes pe-msg { 0% { opacity: 0; transform: translateY(8px); } 6%, 30% { opacity: 1; transform: none; } 36%, 100% { opacity: 0; transform: translateY(-8px); } }
+      @keyframes pe-slide { 0% { transform: translateX(-110%); } 100% { transform: translateX(280%); } }
+      @keyframes pe-appear { from { opacity: 0; } to { opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) {
+        .pe-splash *, .pe-splash { animation-duration: 0.01s !important; animation-iteration-count: 1 !important; }
+        .pe-arc { stroke-dashoffset: 260; }
+        .pe-splash__msgs span:first-child { opacity: 1; }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="pe-splash" role="status" aria-label="Chargement de PréviÉnergie">
+        <div class="pe-splash__stage">
+          <div class="pe-splash__glow"></div>
+          <div class="pe-splash__mark">
+            <svg viewBox="0 0 512 512" aria-hidden="true">
+              <rect width="512" height="512" rx="112" fill="#ea580c" />
+              <circle cx="256" cy="256" r="168" fill="none" stroke="#fff" stroke-opacity="0.22" stroke-width="28" />
+              <circle class="pe-arc" cx="256" cy="256" r="168" />
+              <path class="pe-bolt" d="M282 112 172 286h72l-22 114 112-178h-74z" />
+            </svg>
+          </div>
+          <span class="pe-splash__spark"></span>
+          <span class="pe-splash__spark"></span>
+          <span class="pe-splash__spark"></span>
+        </div>
+        <p class="pe-splash__brand">Prévi<span>Énergie</span></p>
+        <div class="pe-splash__msgs"><span>On allume la lumière…</span><span>On lit ton compteur…</span><span>On calcule tes jours de courant…</span></div>
+        <div class="pe-splash__bar"><i></i></div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
