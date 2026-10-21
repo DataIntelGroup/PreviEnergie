@@ -53,6 +53,7 @@ export default function Reglages() {
   const [s, setS] = useState<Settings | null>(null);
   const [plans, setPlans] = useState<Plan[]>([]);
   const [planDraft, setPlanDraft] = useState<Record<string, Plan>>({});
+  const [savingPlan, setSavingPlan] = useState<string | null>(null);
   const ro = !isAdmin;
 
   const load = async () => {
@@ -90,13 +91,18 @@ export default function Reglages() {
     const p = planDraft[code];
     if (!isCinetPayAmount(p.price_fcfa) && p.price_fcfa !== 0) return toast("Le prix doit être un multiple de 5 FCFA (contrainte CinetPay).", "error");
     if (!p.channels.length) return toast("Une offre doit avoir au moins un canal.", "error");
-    const { error } = await supabase.rpc("admin_update_plan", {
-      p_code: code, p_name: p.name, p_description: p.description, p_price_fcfa: p.price_fcfa, p_max_meters: p.max_meters,
-      p_channels: p.channels, p_history_days: p.history_days, p_active: p.active,
-    });
-    if (error) return toast(errorMessage(error), "error");
-    toast(`Offre ${p.name} enregistrée`);
-    await load();
+    setSavingPlan(code);
+    try {
+      const { error } = await supabase.rpc("admin_update_plan", {
+        p_code: code, p_name: p.name, p_description: p.description, p_price_fcfa: p.price_fcfa, p_max_meters: p.max_meters,
+        p_channels: p.channels, p_history_days: p.history_days, p_active: p.active,
+      });
+      if (error) return toast(errorMessage(error), "error");
+      toast(`Offre ${p.name} enregistrée`);
+      await load();
+    } finally {
+      setSavingPlan(null);
+    }
   }
 
   return (
@@ -253,7 +259,7 @@ export default function Reglages() {
                   Proposée à la vente
                 </label>
               )}
-              {!ro && <Button className="w-full" disabled={!changed} onClick={() => void savePlan(orig.code)}>Enregistrer l'offre</Button>}
+              {!ro && <Button className="w-full" disabled={!changed} loading={savingPlan === orig.code} onClick={() => void savePlan(orig.code)}>Enregistrer l'offre</Button>}
             </Card>
           );
         })}

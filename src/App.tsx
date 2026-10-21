@@ -4,7 +4,7 @@
 import { lazy, type ReactNode, Suspense } from "react";
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from "react-router-dom";
 import { AppLayout, BareLayout } from "@/components/Layout";
-import { Button, FullPageSpinner, Notice, ToastProvider } from "@/components/ui";
+import { AppLoader, Button, FullPageSpinner, Notice, ToastProvider } from "@/components/ui";
 import { AuthProvider, useAuth } from "@/lib/auth";
 import { DataProvider } from "@/lib/data";
 import { R } from "@/lib/routes";
@@ -104,7 +104,7 @@ export default function App() {
       <AuthProvider>
         <ToastProvider>
           <RouteProgress />
-          <Suspense fallback={<FullPageSpinner />}>
+          <Suspense fallback={<AppLoader delay />}>
           <Routes>
             <Route path={R.accueilPublic} element={<PublicHome />} />
             <Route path={R.connexion} element={<Connexion />} />
@@ -128,7 +128,7 @@ export default function App() {
                 path={`${R.admin}/*`}
                 element={
                   <RequireStaff>
-                    <Suspense fallback={<FullPageSpinner />}>
+                    <Suspense fallback={<AppLoader delay />}>
                       <Admin />
                     </Suspense>
                   </RequireStaff>
