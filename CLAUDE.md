@@ -18,4 +18,4 @@ Lire d'abord `README.md` (architecture, commandes, mise en ligne) et `docs/EXPRE
 - Proxy d'entreprise : les scripts Node qui appellent internet passent `--use-env-proxy` (déjà dans `npm run deploy`).
 - La base Supabase se joint par le pooler (port 5432), `db.<ref>.supabase.co` n'a qu'une adresse IPv6.
 - Un heredoc Bash retire un niveau d'antislash : écrire les regex et échappements avec l'outil Write ou Edit.
-- Le service worker n'est enregistré qu'en production (`npm run build && npm run preview`) : les notifications push ne se testent pas avec `npm run dev`.
+- Le service worker n'est enregistré qu'en production (`npm run prod`) : les notifications push ne se testent pas avec `npm run dev`.
