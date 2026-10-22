@@ -158,7 +158,9 @@ export default function Accueil() {
               </div>
             </div>
             <span className="inline-flex items-center gap-2 rounded-full bg-white/20 px-3 py-1 text-sm font-semibold ring-1 ring-white/30">
-              <span className={`h-2 w-2 rounded-full ${STATUS[level].dot}`} /> {STATUS[level].label}
+              {/* Postpayé : pas de jours restants, la carte suit la prochaine facture. */}
+              <span className={`h-2 w-2 rounded-full ${!prepaid && !learning && forecast ? "bg-emerald-400" : STATUS[level].dot}`} />{" "}
+              {!prepaid && !learning && forecast ? "Suivi de ta facture" : STATUS[level].label}
             </span>
           </div>
 

@@ -36,4 +36,12 @@ for (const a of ACCOUNTS) {
   const code = link.email_otp ?? link.properties?.email_otp;
   console.log(`${a.email.padEnd(28)} rôle ${a.role.padEnd(5)} code ${code}`);
 }
+
+// Compte vitrine des données de démo (npm run demo), s'il existe : on ne le modifie pas.
+const VITRINE = "aya.kouassi@demo.previenergie.test";
+const all = await call("GET", `/auth/v1/admin/users?per_page=1000`);
+if (all.users.some((u) => u.email === VITRINE)) {
+  const link = await call("POST", "/auth/v1/admin/generate_link", { type: "magiclink", email: VITRINE });
+  console.log(`${VITRINE.padEnd(28)} démo  client code ${link.email_otp ?? link.properties?.email_otp}`);
+}
 console.log("\nCodes valables 10 minutes. Sur /connexion : email, puis « J'ai déjà un code ».");
