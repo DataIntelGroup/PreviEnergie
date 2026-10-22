@@ -33,6 +33,20 @@ Pas d'offre gratuite permanente : **14 jours d'essai** à l'inscription (réglab
 - **Facture postpayée (BF-14)** : l'abonné enregistre sa facture CIE (photo ou PDF lu sur le téléphone, ou saisie). On en tire la période (bimestrielle en général), la part fixe (prime fixe et taxes) et le prix réel du kWh, TVA comprise ; l'estimation suivante combine le nouvel index de la facture et les relevés (`_shared/facture.ts`). Aucun barème CIE n'est codé.
 - **Bilan hebdomadaire (BF-21)** : chaque lundi à 8 h par défaut (réglable), consommation des 7 derniers jours, évolution et recharges (`_shared/bilan.ts`). Désactivable par l'abonné.
 
+## Actions de l'équipe sur les clients
+
+Réservées aux administrateurs (le support voit tout en lecture seule), dans le back-office :
+
+- **Fiche client** (Utilisateurs, clic sur une ligne ; l'icône bulle ouvre directement l'onglet Message) :
+  - **Message** : notification push et/ou email, avec aperçu de la notification et `{prenom}` remplacé ; le nombre d'appareils abonnés est affiché, et un client sans appareil est signalé avant l'envoi.
+  - **Gérer** : offre et rôle, prolongation d'essai (+3, +7 ou +14 jours, `admin_extend_trial`), suspension et réactivation, suppression définitive (il faut recopier l'email du client ; un compte de l'équipe doit d'abord repasser en « Utilisateur »).
+  - **Profil** : accès (essai, abonné, lecture seule), compteurs, relevés, derniers messages et alertes reçus.
+- **Relances** : message à un groupe (essai qui se termine, lecture seule, offre qui expire, sans relevé depuis 3 jours, en essai, abonnés, tous), avec un texte proposé pour chacun, confirmation avant l'envoi et historique des envois. Les heures calmes de chaque client sont respectées par défaut ; les comptes suspendus et l'équipe ne reçoivent jamais de relance.
+
+Tout passe par la fonction `admin-clients` (rôle revérifié côté serveur), règles des groupes dans `_shared/segments.ts` (testées). Chaque envoi est enregistré dans les alertes (type « message », visible par le client dans son historique) et dans le journal. L'email ne part qu'une fois `EMAIL_PROVIDER`, `EMAIL_API_KEY` et `EMAIL_FROM` configurés ; d'ici là, la case est grisée avec l'explication.
+
+Une notification push n'arrive que sur un appareil où le client a activé les notifications (écran Alertes de l'app). Sur iPhone, il faut iOS 16.4 ou plus et l'app installée sur l'écran d'accueil.
+
 ## Application installable (PWA)
 
 - **Manifeste** (`vite.config.ts`, publié en `/manifest.webmanifest`) : `id: "/app"` (identité de l'app installée, à ne jamais changer), icônes 192 et 512 (plus une version « maskable » pour Android), fond crème `#fffaf5` pour l'écran de démarrage, orange `#ea580c` pour la barre d'état, raccourcis Relevé et Recharge, `related_applications` pour que Chrome sache dire si l'app est déjà installée. `VITE_SITE_URL` change l'adresse publique (défaut : https://previenergie.vercel.app).

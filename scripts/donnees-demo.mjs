@@ -52,9 +52,12 @@ async function vider() {
     const list = `(${ids.slice(i, i + 50).join(",")})`;
     await call("DELETE", `/rest/v1/payments?user_id=in.${list}`);
     await call("DELETE", `/rest/v1/ai_reads?user_id=in.${list}`);
+    // Gestes de l'équipe sur les clients de démo (essais depuis le back-office).
+    await call("DELETE", `/rest/v1/audit_log?target_id=in.${list}`);
   }
   await call("DELETE", `/rest/v1/payments?transaction_id=like.DEMO-*`);
   await call("DELETE", `/rest/v1/audit_log?details->>demo=eq.true`);
+  await call("DELETE", `/rest/v1/audit_log?details->>email=like.*${DOMAIN}`);
   for (const u of users) await call("DELETE", `/auth/v1/admin/users/${u.id}`);
   console.log(`Données de démo supprimées : ${users.length} comptes.`);
 }

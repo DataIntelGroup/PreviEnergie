@@ -1,6 +1,6 @@
 // Quatre tableaux de bord sur 7, 30 ou 90 jours (BF-26 à BF-29), tous
 // alimentés par un seul appel à admin_dashboard.
-import { ALERT_LABELS, type AlertType, CHANNEL_LABELS, type Channel } from "@shared/reglages.ts";
+import { alertLabel, CHANNEL_LABELS, type Channel } from "@shared/reglages.ts";
 import { PAYMENT_LABELS } from "@shared/validation.ts";
 import { type ReactNode, useEffect, useState } from "react";
 import { BarChart } from "@/components/BarChart";
@@ -288,7 +288,7 @@ export default function Dashboards({ view }: { view: "signups" | "finance" | "co
           <Series title="Relevés par jour" points={a.series} format={(v) => `${num(v, 0)} relevé${v > 1 ? "s" : ""}`} />
           <div className="grid gap-3 lg:grid-cols-3">
             <Breakdown title="Alertes par canal" items={a.alertsByChannel} label={(l) => CHANNEL_LABELS[l as Channel] ?? l} />
-            <Breakdown title="Alertes par type" items={a.alertsByType} label={(l) => ALERT_LABELS[l as AlertType] ?? l} />
+            <Breakdown title="Alertes par type" items={a.alertsByType} label={alertLabel} />
             <Breakdown title="Relevés par mode" items={a.readingsBySource} label={(l) => SOURCE_NAMES[l] ?? l} />
           </div>
           {a.alertsFailed > 0 && <Notice tone="warning">{a.alertsFailed} alerte{a.alertsFailed > 1 ? "s" : ""} non délivrée{a.alertsFailed > 1 ? "s" : ""} sur la période (voir les secrets des canaux).</Notice>}
