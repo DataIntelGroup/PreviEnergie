@@ -92,7 +92,7 @@ export function LectureDocument({
     { icon: "camera", title: "Photographier", sub: kind === "recu" ? "le reçu papier" : "la facture, à plat", onClick: () => camera.current?.click() },
     { icon: "download", title: "Importer", sub: "une capture d'écran ou un PDF", onClick: () => picker.current?.click() },
   ];
-  if (kind === "recu") tiles.push({ icon: "message", title: "Coller un SMS", sub: "de Wave, Orange, MTN ou Moov", onClick: () => setSms("") });
+  if (kind === "recu") tiles.push({ icon: "message", title: "Coller un SMS", sub: "de la CIE, Wave, Orange, MTN ou Moov", onClick: () => setSms("") });
 
   return (
     <div className="space-y-4">
@@ -114,12 +114,53 @@ export function LectureDocument({
         ))}
       </div>
       {error && <Notice tone="error">{error}</Notice>}
-      <p className="text-sm text-stone-500">
-        {kind === "recu"
-          ? "Astuce : sur Wave, ouvre la transaction puis « Partager le reçu » et enregistre l'image ; sur Orange Money, télécharge le reçu en PDF."
-          : "Astuce : photographie la facture entière, bien à plat et éclairée, sans reflet."}
-      </p>
+      {kind === "recu" ? <ExempleCapture /> : <p className="text-sm text-stone-500">Astuce : photographie la facture entière, bien à plat et éclairée, sans reflet.</p>}
       <Button variant="secondary" className="w-full" onClick={onManual}>Saisir à la main</Button>
     </div>
+  );
+}
+
+// Exemple de SMS de la CIE après un achat (valeurs inventées, même présentation).
+const SMS_EXEMPLE: [string, string][] = [
+  ["Code rechargement", "1111 2222 3333 4444 5555"],
+  ["Ctr", "12345678901"],
+  ["Mt Energie", "9585.09"],
+  ["Prime fixe", "1045.40"],
+  ["R-RTI", "340.30"],
+  ["RER", "147.47"],
+  ["TEOM", "283.59"],
+  ["kWh", "113.44"],
+  ["Redevance brch", "3598.15"],
+  ["Total général", "15000 dont TVA 1621.60"],
+];
+
+/** Ce que l'on peut importer : capture du SMS de la CIE, reçu Wave, PDF Orange Money. */
+function ExempleCapture() {
+  return (
+    <details className="group rounded-2xl bg-[#fffaf5] p-4 ring-1 ring-brand-100">
+      <summary className="flex cursor-pointer list-none items-center justify-between gap-3 text-sm font-semibold text-stone-700">
+        Quelles captures marchent ?
+        <Icon name="plus" className="h-4 w-4 text-brand-600 transition group-open:rotate-45" />
+      </summary>
+      <div className="mt-4 grid gap-4 sm:grid-cols-[auto_1fr] sm:items-start">
+        <figure className="mx-auto w-64">
+          <div className="rounded-[1.4rem] rounded-bl-md bg-stone-200/70 px-4 py-3 font-sans text-[13px] leading-snug text-stone-900">
+            {SMS_EXEMPLE.map(([k, v]) => (
+              <p key={k}>
+                {k}: <span className="tabular font-medium">{v}</span>
+              </p>
+            ))}
+            <p className="mt-1 text-stone-500">2026-10-02 08:41:07</p>
+          </div>
+          <figcaption className="mt-2 text-center text-xs text-stone-500">Exemple : capture d'écran du SMS de la CIE (chiffres fictifs)</figcaption>
+        </figure>
+        <ul className="space-y-2 text-sm text-stone-600">
+          <li><strong className="text-stone-900">SMS de la CIE</strong> : fais une capture d'écran du message reçu après l'achat, puis « Importer ». Tout est lu : kWh, montant, code et détail des taxes.</li>
+          <li><strong className="text-stone-900">Wave</strong> : ouvre la transaction, « Partager le reçu », enregistre l'image.</li>
+          <li><strong className="text-stone-900">Orange Money</strong> : télécharge le reçu en PDF.</li>
+          <li>Ou copie le texte du SMS et choisis « Coller un SMS ».</li>
+        </ul>
+      </div>
+    </details>
   );
 }

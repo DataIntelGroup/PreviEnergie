@@ -53,7 +53,7 @@ for (const f of files) {
     const c = r.code ? `${r.code.slice(0, 4)} … (${r.code.replace(/\D/g, "").length} chiffres)` : null;
     console.log(`${r.source} · ${r.kind} · montant ${r.amountFcfa} F · ${r.kwh} kWh · code ${c} · date ${r.date} · ${r.found}/4 champs`);
     if (r.breakdown.energie !== null) {
-      console.log(`  détail : énergie ${r.breakdown.energie} · prime fixe ${r.breakdown.primeFixe} · RTI ${r.breakdown.rti} · RER ${r.breakdown.rer} · TEOM ${r.breakdown.teom} · TVA ${r.breakdown.tva} → contrôle ${r.consistent ? "juste ✓" : "faux ✗"}`);
+      console.log(`  détail : énergie ${r.breakdown.energie} · prime fixe ${r.breakdown.primeFixe} · RTI ${r.breakdown.rti} · RER ${r.breakdown.rer} · TEOM ${r.breakdown.teom} · branchement ${r.breakdown.branchement} · TVA ${r.breakdown.tva} → contrôle ${r.consistent ? "juste ✓" : "faux ✗"}`);
     }
   }
 }

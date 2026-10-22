@@ -223,10 +223,13 @@ function Detail({ r }: { r: ReceiptRead }) {
     ["Électrification rurale", b.rer],
     ["Ordures ménagères", b.teom],
     ["Dette reprise", b.dette],
+    ["Redevance de branchement", b.branchement],
   ];
   const shown = rows.filter(([, v]) => v !== null && v > 0);
   if (shown.length < 2) return null;
-  const perKwh = r.amountFcfa && r.kwh ? r.amountFcfa / r.kwh : null;
+  // Le prix du kWh ne compte pas ce qui rembourse une dette ou le branchement.
+  const energyPaid = r.amountFcfa === null ? null : r.amountFcfa - (b.dette ?? 0) - (b.branchement ?? 0);
+  const perKwh = energyPaid && r.kwh ? energyPaid / r.kwh : null;
   return (
     <Card className="space-y-2 text-sm">
       <p className="font-semibold text-stone-900">Détail du reçu</p>
@@ -248,7 +251,11 @@ function Detail({ r }: { r: ReceiptRead }) {
           <dd className="tabular">{fcfa(r.amountFcfa)}</dd>
         </div>
       </dl>
-      {perKwh && <p className="text-stone-500">Prix réel : {fcfa(perKwh)} par kWh, taxes comprises.</p>}
+      {perKwh && (
+        <p className="text-stone-500">
+          Prix réel : {fcfa(perKwh)} par kWh, taxes comprises{b.branchement || b.dette ? ", hors redevance et dette" : ""}.
+        </p>
+      )}
     </Card>
   );
 }
