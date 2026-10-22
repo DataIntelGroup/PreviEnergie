@@ -14,6 +14,8 @@ export interface ReceiptBreakdown {
   teom: number | null;
   tva: number | null;
   dette: number | null;
+  /** Redevance de branchement : remboursement du branchement, prélevé à chaque recharge. */
+  branchement: number | null;
 }
 
 export interface ReceiptRead {
@@ -105,9 +107,16 @@ function isoFrom(y: number, m: number, d: number, h = 0, min = 0): string | null
   return Number.isNaN(Date.parse(iso)) ? null : iso;
 }
 
-/** « 8 déc. 2024 5:55 PM », « 24-09-2026 ,20:00 », « 04/10/2020 ». */
+/** « 2026-09-26 16:19:25 », « 8 déc. 2024 5:55 PM », « 24-09-2026 ,20:00 », « 04/10/2020 ». */
 export function parseDateTime(text: string): string | null {
   const t = normalize(text);
+  // Date et heure informatiques (SMS de la CIE) : la plus précise, prioritaire
+  // sur une date écrite dans le texte d'information en bas du message.
+  const iso = /(?<!\d)(\d{4})-(\d{2})-(\d{2})[ t](\d{2}):(\d{2})/.exec(t);
+  if (iso) {
+    const v = isoFrom(Number(iso[1]), Number(iso[2]), Number(iso[3]), Number(iso[4]), Number(iso[5]));
+    if (v) return v;
+  }
   const fr = /(\d{1,2})\s+([a-z]{3,9})\.?\s+(\d{4})(?:[\s,]+(?:a\s+)?(\d{1,2})\s*[:h]\s*(\d{2})\s*(am|pm)?)?/.exec(t);
   if (fr && MONTHS[fr[2]]) {
     let h = fr[4] ? Number(fr[4]) : 0;
@@ -149,7 +158,8 @@ function detectSource(t: string): ReceiptSource {
   if (/orange\s*money|billpay|\bmp\d{6}\./.test(t)) return "orange_money";
   if (/\bmtn\b|momo/.test(t)) return "mtn_momo";
   if (/\bmoov\b|flooz/.test(t)) return "moov_money";
-  if (/\bcie\b|compagnie ivoirienne/.test(t)) return "cie";
+  // SMS envoyé par la CIE après un achat : « Code rechargement », « Redevance brch ».
+  if (/\bcie\b|compagnie ivoirienne|code rechargement|redevance br/.test(t)) return "cie";
   return "inconnu";
 }
 
@@ -170,11 +180,13 @@ export function parseReceiptText(text: string): ReceiptRead {
   const ls = lines(text);
   const source = detectSource(t);
 
-  const kwhMatch = /(\d+(?:[.,]\d+)?)\s*k\s*w\s*h/.exec(t);
+  // « kWh: 226.87 » (SMS CIE) d'abord, sinon « 91,8 kWh » sur la même ligne :
+  // sans cette précaution, le nombre de la ligne au-dessus serait pris.
+  const kwhMatch = /\bk\s*w\s*h\s*:\s*(\d+(?:[.,]\d+)?)/.exec(t) ?? /(\d+(?:[.,]\d+)?)[ \t]*k\s*w\s*h/.exec(t);
   const kwh = kwhMatch ? parseDecimal(kwhMatch[1]) : null;
   const code = findRechargeCode(text);
   const date = parseDateTime(ls.find((l) => /date/.test(l)) ?? "") ?? parseDateTime(t);
-  const meter = /(?:numero de compteur|n[°o]\s*compteur|compteur)\s*:?\s*(\d{8,13})/.exec(t);
+  const meter = /(?:numero de compteur|n[°o]\s*compteur|compteur|\bctr)\s*:?\s*(\d{8,13})\b/.exec(t);
 
   // Montant payé : intitulé « montant » (transféré, payé…), sinon « total ».
   const amountFcfa =
@@ -183,20 +195,21 @@ export function parseReceiptText(text: string): ReceiptRead {
     amountAfter(ls, /\btotal\b\s*:?/);
 
   const breakdown: ReceiptBreakdown = {
-    energie: amountAfter(ls, /cout de l.?energie\s*:?/),
+    energie: amountAfter(ls, /(cout de l.?energie|\bmt energie|montant energie)\s*:?/),
     primeFixe: amountAfter(ls, /prime fixe\s*:?/),
     rti: amountAfter(ls, /\br-?\s?rti\b\s*:?/),
     rer: amountAfter(ls, /\brer\b\s*:?/),
     teom: amountAfter(ls, /\bteom\b\s*:?/),
     tva: amountAfter(ls, /\btva\b\s*:?/),
     dette: amountAfter(ls, /dette[^\d]*:?/),
+    branchement: amountAfter(ls, /redevance (de )?br(anchement|ch)\.?\s*:?/),
   };
 
-  // Sur les reçus CIE, énergie + prime fixe + RTI + RER + TEOM (+ dette) = montant
-  // payé ; la TVA est déjà comprise dans ces lignes.
+  // Sur les reçus CIE, énergie + prime fixe + RTI + RER + TEOM (+ dette,
+  // + redevance de branchement) = montant payé ; la TVA est déjà comprise.
   let consistent: boolean | null = null;
   if (amountFcfa !== null && breakdown.energie !== null) {
-    const parts = [breakdown.energie, breakdown.primeFixe, breakdown.rti, breakdown.rer, breakdown.teom, breakdown.dette];
+    const parts = [breakdown.energie, breakdown.primeFixe, breakdown.rti, breakdown.rer, breakdown.teom, breakdown.dette, breakdown.branchement];
     const sum = parts.reduce<number>((s, v) => s + (v ?? 0), 0);
     consistent = Math.abs(sum - amountFcfa) <= 1;
   }

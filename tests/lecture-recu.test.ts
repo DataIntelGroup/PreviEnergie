@@ -178,6 +178,66 @@ describe("SMS de recharge collé", () => {
   });
 });
 
+// SMS de la CIE après un achat, tel que l'OCR le lit sur une capture d'écran
+// d'iPhone (valeurs inventées, même présentation que le vrai message).
+const SMS_CIE = `Code rechargement: 1111 2222
+3333 4444 5555
+
+Ctr: 12345678901
+
+Ref: 0400000000001
+
+Mt Energie: 9585.09
+
+Prime fixe: 1045.40
+
+R-RTI: 340.30
+
+RER: 147.47
+
+TEOM: 283.59
+
+kWh: 113.44
+
+Redevance brch: 3598.15
+
+Total général: 15000 dont TVA
+1621.60
+
+Recu: 0a1b2c3d4e
+
+2026-10-02 08:41:07
+
+<< Cher client, les nouveaux
+tarifs de l'électricité sont en
+vigueur depuis le 07 janvier 2024.
+Plus d'info au 179 >>`;
+
+describe("SMS de la CIE (capture d'écran)", () => {
+  const r = parseReceiptText(SMS_CIE);
+
+  it("kWh de la ligne « kWh: », pas le nombre de la ligne au-dessus", () => {
+    expect(r.kwh).toBe(113.44);
+  });
+
+  it("date du message, pas celle du texte d'information", () => {
+    expect(r.date).toBe("2026-10-02T08:41:00.000Z");
+  });
+
+  it("montant, code, compteur et source", () => {
+    expect(r).toMatchObject({ source: "cie", kind: "recharge", amountFcfa: 15000, code: "1111 2222 3333 4444 5555", meterNumber: "12345678901", found: 4 });
+  });
+
+  it("détail avec la redevance de branchement : le compte tombe juste", () => {
+    expect(r.breakdown).toMatchObject({ energie: 9585.09, primeFixe: 1045.4, rti: 340.3, rer: 147.47, teom: 283.59, branchement: 3598.15, tva: 1621.6 });
+    expect(r.consistent).toBe(true);
+  });
+
+  it("sans la redevance de branchement, le contrôle échouerait", () => {
+    expect(parseReceiptText(SMS_CIE.replace("Redevance brch: 3598.15", "")).consistent).toBe(false);
+  });
+});
+
 describe("facture postpayée CIE", () => {
   const b = parseBillText(CIE_FACTURE);
 
