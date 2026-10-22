@@ -95,6 +95,13 @@ export const ALERT_LABELS: Record<AlertType, string> = {
   bilan: "Bilan de la semaine",
 };
 
+/** Libellé de n'importe quelle ligne d'alerte, y compris les essais et les messages de l'équipe. */
+export function alertLabel(type: string): string {
+  if (type === "test") return "Notification de test";
+  if (type === "message") return "Message de l'équipe";
+  return ALERT_LABELS[type as AlertType] ?? type;
+}
+
 export const CHANNEL_LABELS: Record<Channel, string> = {
   push: "Notification",
   email: "Email",

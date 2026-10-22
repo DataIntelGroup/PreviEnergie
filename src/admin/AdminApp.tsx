@@ -9,6 +9,7 @@ import { supabase } from "@/lib/supabase";
 import Dashboards, { type Dashboard } from "./Dashboards";
 import Journal from "./Journal";
 import Reglages from "./Reglages";
+import Relances from "./Relances";
 import Utilisateurs from "./Utilisateurs";
 import { R } from "@/lib/routes";
 
@@ -35,6 +36,7 @@ const NAV = [
   { to: "/admin/couts", label: "Coûts et marge" },
   { to: "/admin/activite", label: "Activité" },
   { to: "/admin/utilisateurs", label: "Utilisateurs" },
+  { to: "/admin/relances", label: "Relances" },
   { to: "/admin/reglages", label: "Réglages" },
   { to: "/admin/journal", label: "Journal" },
 ];
@@ -109,6 +111,7 @@ export default function AdminApp() {
               <Route path="couts" element={<Dashboards view="costs" />} />
               <Route path="activite" element={<Dashboards view="activity" />} />
               <Route path="utilisateurs" element={<Utilisateurs />} />
+              <Route path="relances" element={<Relances />} />
               <Route path="reglages" element={<Reglages />} />
               <Route path="journal" element={<Journal />} />
               <Route path="*" element={<Navigate to="inscriptions" replace />} />

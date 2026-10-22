@@ -250,6 +250,27 @@ async function main() {
     const log = await db.query("select count(*)::int n from audit_log where action = 'user.update' and actor_id = $1", [ADMIN]);
     assert(log.rows[0].n === 1);
   });
+  await check("prolonger un essai : admin seulement, 1 à 60 jours, journalisé", async () => {
+    await rejects(() => user(A, (q) => q("select admin_extend_trial($1, 7)", [A])), /42501|Réservé/);
+    await rejects(() => user(SUPPORT, (q) => q("select admin_extend_trial($1, 7)", [A])), /42501|administrateurs/);
+    await rejects(() => user(ADMIN, (q) => q("select admin_extend_trial($1, 90)", [A])), /Durée invalide/);
+    await db.query("update profiles set trial_ends_at = now() - interval '3 days' where id = $1", [A]);
+    await user(ADMIN, (q) => q("select admin_extend_trial($1, 7)", [A]));
+    const { rows } = await db.query("select trial_ends_at > now() + interval '6 days' ok from profiles where id = $1", [A]);
+    assert(rows[0].ok, "un essai fini repart d'aujourd'hui");
+    const log = await db.query("select count(*)::int n from audit_log where action = 'user.trial' and target_id = $1", [A]);
+    assert(log.rows[0].n === 1);
+  });
+  await check("la liste des utilisateurs donne l'accès et les appareils abonnés", async () => {
+    const { rows } = await user(SUPPORT, (q) => q("select admin_users('') as r"));
+    const a = rows[0].r.rows.find((x) => x.id === A);
+    assert(a.access === "trial" && a.push_devices === 0 && a.trial_ends_at, JSON.stringify(a));
+  });
+  await check("un message de l'équipe s'enregistre comme alerte", async () => {
+    await db.query("insert into alerts (user_id, type, channel, cycle_key, status) values ($1, 'message', 'push', 'campagne-1', 'sent')", [A]);
+    const { rows } = await user(A, (q) => q("select count(*)::int n from alerts where type = 'message'"));
+    assert(rows[0].n === 1);
+  });
   await check("l'admin ne se retire pas son propre rôle", () =>
     rejects(() => user(ADMIN, (q) => q("select admin_update_user($1, null, null, 'user')", [ADMIN])), /propre rôle/));
   await check("l'admin modifie un réglage, un réglage inconnu est refusé", async () => {

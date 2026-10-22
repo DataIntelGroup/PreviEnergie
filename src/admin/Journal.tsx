@@ -21,6 +21,8 @@ const ACTIONS: Record<string, string> = {
   "plan.expire": "Offres expirées",
   "payment.accepted": "Paiement accepté",
   "account.delete": "Compte supprimé",
+  "message.send": "Message envoyé",
+  "user.trial": "Essai prolongé",
 };
 
 const PAGE = 50;

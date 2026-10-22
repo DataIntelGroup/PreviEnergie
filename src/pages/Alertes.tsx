@@ -1,6 +1,6 @@
 // Préférences d'alerte (BF-19, BF-20) : canaux selon l'offre, consentement
 // WhatsApp et SMS, heures calmes, essai d'envoi, dernières alertes.
-import { ALERT_LABELS, type AlertType, type Channel, CHANNEL_LABELS } from "@shared/reglages.ts";
+import { alertLabel, type Channel, CHANNEL_LABELS } from "@shared/reglages.ts";
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Button, Card, Field, Input, Notice, PageTitle, Toggle, useToast } from "@/components/ui";
@@ -177,7 +177,7 @@ export default function Alertes() {
             {recent.map((a) => (
               <li key={a.id} className="px-4 py-3">
                 <p className="text-sm font-medium">
-                  {ALERT_LABELS[a.type as AlertType] ?? a.type} · {CHANNEL_LABELS[a.channel]}
+                  {alertLabel(a.type)} · {CHANNEL_LABELS[a.channel]}
                   {a.status === "failed" && <span className="ml-2 text-red-600">non délivrée</span>}
                 </p>
                 <p className="text-sm text-stone-500">{meterName(a.meter_id)} · {fmtDateTime(a.sent_at)}</p>
