@@ -17,6 +17,7 @@
     "vapid": "node scripts/vapid.mjs",
     "deploy": "node --env-file=.env.local --use-env-proxy scripts/deploy.mjs",
     "comptes:test": "node --env-file=.env.local --use-env-proxy scripts/comptes-test.mjs",
+    "demo": "node --env-file=.env.local --use-env-proxy scripts/donnees-demo.mjs",
     "eval:lecture": "node scripts/eval-lecture.mjs"
   },
   "dependencies": {

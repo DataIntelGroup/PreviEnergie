@@ -107,4 +107,8 @@ Le poste de travail est derrière un proxy qui bloque les ports PostgreSQL : `np
 
 ## Données de test
 
+`npm run demo` crée 24 clients fictifs comme après deux mois de service : compteurs prépayés et postpayés, relevés (par photo ou saisis), recharges, factures, paiements (dont des refusés), alertes, réponses « As-tu été coupé ? », lectures IA, un partage et quelques entrées du journal. L'app et les quatre tableaux de bord du back-office sont ainsi remplis. Compte vitrine côté client : `aya.kouassi@demo.previenergie.test` (Famille / Pro, Maison, Boutique partagée, Bureau postpayé) ; son code de connexion est affiché par `npm run comptes:test`.
+
+Tout est repérable : comptes en `@demo.previenergie.test`, paiements `DEMO-…`, journal marqué `demo`. `npm run demo` efface d'abord la démo précédente ; `npm run demo -- vider` efface sans recréer, sans toucher aux vrais comptes. **À vider avant l'ouverture au public**, sinon les tableaux de bord mélangent vrais et faux clients.
+
 Le seuil d'apprentissage est de 3 relevés étalés sur au moins 2 jours (6 h de tolérance) ; la prévision devient « standard » après 7 jours. Pour voir une prévision sans attendre, saisir des relevés en changeant leur date (« Relevé fait plus tôt ? »).
