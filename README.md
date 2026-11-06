@@ -115,6 +115,11 @@ Tout se pilote depuis `.env.local` (modèle : `.env.example`, jamais versionné)
 
 `npm run comptes:test` crée ou reprend `testeur@previenergie.test` (utilisateur) et `equipe@previenergie.test` (administrateur), profils complétés, et affiche pour chacun un code de connexion valable 10 minutes, sans envoyer d'email. Sur `/connexion` : saisir l'email, puis « J'ai déjà un code ».
 
+Comptes de l'équipe (admin ou support) :
+
+- `npm run comptes:test -- prenom@exemple.com` affiche un code de connexion valable 10 minutes pour ce compte, sans envoyer d'email ni rien modifier.
+- `npm run mot-de-passe -- prenom@exemple.com` définit un mot de passe (12 caractères au moins, saisi deux fois, masqué, jamais affiché ni enregistré). Il sert en local : `npm run dev`, puis sur `/connexion` le lien « Mot de passe (local) ». La version en ligne ne propose jamais ce formulaire. Le mot de passe reste valable auprès de Supabase : choisis-en un long et unique.
+
 Sans service SMTP, l'email intégré de Supabase n'écrit qu'aux membres de l'organisation Supabase, quelques fois par heure, et contient un lien au lieu du code (le plan gratuit interdit de changer le modèle d'email sans SMTP). L'application accepte les deux.
 
 Le poste de travail est derrière un proxy qui bloque les ports PostgreSQL : `npm run deploy` bascule alors sur l'API de gestion Supabase (HTTPS) avec `SUPABASE_ACCESS_TOKEN`.

@@ -24,24 +24,41 @@ async function call(method, path, body) {
   return text ? JSON.parse(text) : null;
 }
 
-for (const a of ACCOUNTS) {
-  const list = await call("GET", `/auth/v1/admin/users?per_page=200`);
-  let user = list.users.find((u) => u.email === a.email);
-  if (!user) user = await call("POST", "/auth/v1/admin/users", { email: a.email, email_confirm: true, user_metadata: { source: "test" } });
-  // Profil complet et rôle : le compte de test entre directement dans l'app.
-  await call("PATCH", `/rest/v1/profiles?id=eq.${user.id}`, {
-    first_name: a.first_name, last_name: a.last_name, phone: a.phone, role: a.role, source: "test",
-  });
-  const link = await call("POST", "/auth/v1/admin/generate_link", { type: "magiclink", email: a.email });
-  const code = link.email_otp ?? link.properties?.email_otp;
-  console.log(`${a.email.padEnd(28)} rôle ${a.role.padEnd(5)} code ${code}`);
+// npm run comptes:test -- prenom@exemple.com : code pour un compte existant de
+// l'équipe, sans rien modifier ni envoyer d'email.
+const only = (process.argv[2] ?? "").trim().toLowerCase();
+async function singleCode(email) {
+  const [p] = await call("GET", `/rest/v1/profiles?select=role&email=eq.${encodeURIComponent(email)}`);
+  if (!p) return console.error(`Aucun compte pour ${email}.`);
+  if (p.role !== "admin" && p.role !== "support") return console.error("Réservé aux comptes de l'équipe (admin ou support).");
+  const link = await call("POST", "/auth/v1/admin/generate_link", { type: "magiclink", email });
+  console.log(`${email}  rôle ${p.role}  code ${link.email_otp ?? link.properties?.email_otp}  (valable 10 minutes)`);
 }
 
-// Compte vitrine des données de démo (npm run demo), s'il existe : on ne le modifie pas.
-const VITRINE = "aya.kouassi@demo.previenergie.test";
-const all = await call("GET", `/auth/v1/admin/users?per_page=1000`);
-if (all.users.some((u) => u.email === VITRINE)) {
-  const link = await call("POST", "/auth/v1/admin/generate_link", { type: "magiclink", email: VITRINE });
-  console.log(`${VITRINE.padEnd(28)} démo  client code ${link.email_otp ?? link.properties?.email_otp}`);
+async function allCodes() {
+  for (const a of ACCOUNTS) {
+    const list = await call("GET", `/auth/v1/admin/users?per_page=200`);
+    let user = list.users.find((u) => u.email === a.email);
+    if (!user) user = await call("POST", "/auth/v1/admin/users", { email: a.email, email_confirm: true, user_metadata: { source: "test" } });
+    // Profil complet et rôle : le compte de test entre directement dans l'app.
+    await call("PATCH", `/rest/v1/profiles?id=eq.${user.id}`, {
+      first_name: a.first_name, last_name: a.last_name, phone: a.phone, role: a.role, source: "test",
+    });
+    const link = await call("POST", "/auth/v1/admin/generate_link", { type: "magiclink", email: a.email });
+    const code = link.email_otp ?? link.properties?.email_otp;
+    console.log(`${a.email.padEnd(28)} rôle ${a.role.padEnd(5)} code ${code}`);
+  }
+
+  // Compte vitrine des données de démo (npm run demo), s'il existe : on ne le modifie pas.
+  const VITRINE = "aya.kouassi@demo.previenergie.test";
+  const all = await call("GET", `/auth/v1/admin/users?per_page=1000`);
+  if (all.users.some((u) => u.email === VITRINE)) {
+    const link = await call("POST", "/auth/v1/admin/generate_link", { type: "magiclink", email: VITRINE });
+    console.log(`${VITRINE.padEnd(28)} démo  client code ${link.email_otp ?? link.properties?.email_otp}`);
+  }
+  console.log("\nCodes valables 10 minutes. Sur /connexion : email, puis « J'ai déjà un code ».");
 }
-console.log("\nCodes valables 10 minutes. Sur /connexion : email, puis « J'ai déjà un code ».");
+
+// Pas de process.exit : sous Windows, il fait planter Node juste après une requête.
+if (only) await singleCode(only);
+else await allCodes();

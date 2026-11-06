@@ -1,5 +1,6 @@
 // Connexion par email avec un code à 6 chiffres, sans mot de passe (BF-01).
-// Le compte est créé à la première connexion.
+// Le compte est créé à la première connexion. En local seulement (npm run dev),
+// connexion par mot de passe pour l'équipe : voir npm run mot-de-passe.
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { BareLayout } from "@/components/Layout";
@@ -10,11 +11,14 @@ import { errorMessage, isConfigured, supabase } from "@/lib/supabase";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const RESEND_DELAY = 60;
+/** Connexion par mot de passe : jamais dans la version en ligne. */
+const PASSWORD_LOGIN = import.meta.env.DEV;
 
 export default function Connexion() {
   const { session } = useAuth();
   const [params] = useSearchParams();
-  const [step, setStep] = useState<"email" | "code">("email");
+  const [step, setStep] = useState<"email" | "code" | "password">("email");
+  const [password, setPassword] = useState("");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -75,6 +79,20 @@ export default function Connexion() {
     if (error) setError("Code incorrect ou expiré. Vérifie l'email reçu ou demande un nouveau code.");
   }
 
+  async function passwordLogin(e?: FormEvent) {
+    e?.preventDefault();
+    const clean = email.trim().toLowerCase();
+    if (!EMAIL_RE.test(clean) || !password) {
+      setError("Entre ton email et ton mot de passe.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    const { error } = await supabase.auth.signInWithPassword({ email: clean, password });
+    setBusy(false);
+    if (error) setError(error.status === 400 ? "Email ou mot de passe incorrect." : errorMessage(error));
+  }
+
   return (
     <BareLayout>
       <h1 className="text-3xl font-extrabold text-stone-900">Plus jamais de coupure surprise.</h1>
@@ -88,7 +106,22 @@ export default function Connexion() {
         </Notice>
       )}
 
-      {step === "email" ? (
+      {step === "password" ? (
+        <form onSubmit={passwordLogin} className="mt-8 space-y-4" noValidate>
+          <Notice tone="warning">Connexion par mot de passe : disponible en local uniquement, pour l'équipe.</Notice>
+          <Field label="Email">
+            {(id) => <Input id={id} type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />}
+          </Field>
+          <Field label="Mot de passe">
+            {(id) => <Input id={id} type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />}
+          </Field>
+          {error && <Notice tone="error">{error}</Notice>}
+          <Button type="submit" loading={busy} className="w-full">Me connecter</Button>
+          <button type="button" className="w-full text-center text-sm font-medium text-brand-700" onClick={() => { setStep("email"); setPassword(""); setError(null); }}>
+            Revenir au code par email
+          </button>
+        </form>
+      ) : step === "email" ? (
         <form onSubmit={sendCode} className="mt-8 space-y-4" noValidate>
           <Field label="Ton adresse email" hint="On t'envoie un code à 6 chiffres. Pas de mot de passe.">
             {(id) => (
@@ -121,6 +154,11 @@ export default function Connexion() {
           >
             J'ai déjà un code
           </button>
+          {PASSWORD_LOGIN && (
+            <button type="button" className="w-full text-center text-sm font-medium text-stone-500" onClick={() => { setError(null); setStep("password"); }}>
+              Mot de passe (local)
+            </button>
+          )}
         </form>
       ) : (
         <form onSubmit={verify} className="mt-8 space-y-4" noValidate>
