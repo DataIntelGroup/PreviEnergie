@@ -118,7 +118,7 @@ Tout se pilote depuis `.env.local` (modèle : `.env.example`, jamais versionné)
 Comptes de l'équipe (admin ou support) :
 
 - `npm run comptes:test -- prenom@exemple.com` affiche un code de connexion valable 10 minutes pour ce compte, sans envoyer d'email ni rien modifier.
-- `npm run mot-de-passe -- prenom@exemple.com` définit un mot de passe (12 caractères au moins, saisi deux fois, masqué, jamais affiché ni enregistré). Il sert en local : `npm run dev`, puis sur `/connexion` le lien « Mot de passe (local) ». La version en ligne ne propose jamais ce formulaire. Le mot de passe reste valable auprès de Supabase : choisis-en un long et unique.
+- `npm run mot-de-passe -- prenom@exemple.com` définit un mot de passe (12 caractères au moins, saisi deux fois, masqué, jamais affiché ni enregistré), pour un compte de l'équipe ou un compte de test (`@previenergie.test`, `@demo.previenergie.test`). Connexion : https://previenergie.vercel.app/connexion?mdp, lien « Connexion par mot de passe » (absent de `/connexion` sans `?mdp`, les clients ne le voient pas) ; en local, le lien est toujours là. Choisis un mot de passe long et unique : Supabase l'accepte d'où qu'il vienne. `npm run demo` recrée les comptes de démo : refaire alors le mot de passe du compte vitrine.
 
 Sans service SMTP, l'email intégré de Supabase n'écrit qu'aux membres de l'organisation Supabase, quelques fois par heure, et contient un lien au lieu du code (le plan gratuit interdit de changer le modèle d'email sans SMTP). L'application accepte les deux.
 

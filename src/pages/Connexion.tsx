@@ -1,6 +1,7 @@
 // Connexion par email avec un code à 6 chiffres, sans mot de passe (BF-01).
-// Le compte est créé à la première connexion. En local seulement (npm run dev),
-// connexion par mot de passe pour l'équipe : voir npm run mot-de-passe.
+// Le compte est créé à la première connexion. Connexion par mot de passe pour
+// l'équipe et les comptes de test : en local, ou en ligne avec /connexion?mdp
+// (lien non affiché aux clients). Mot de passe : npm run mot-de-passe.
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { BareLayout } from "@/components/Layout";
@@ -11,14 +12,13 @@ import { errorMessage, isConfigured, supabase } from "@/lib/supabase";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const RESEND_DELAY = 60;
-/** Connexion par mot de passe : jamais dans la version en ligne. */
-const PASSWORD_LOGIN = import.meta.env.DEV;
 
 export default function Connexion() {
   const { session } = useAuth();
   const [params] = useSearchParams();
   const [step, setStep] = useState<"email" | "code" | "password">("email");
   const [password, setPassword] = useState("");
+  const showPassword = import.meta.env.DEV || params.has("mdp");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -108,7 +108,7 @@ export default function Connexion() {
 
       {step === "password" ? (
         <form onSubmit={passwordLogin} className="mt-8 space-y-4" noValidate>
-          <Notice tone="warning">Connexion par mot de passe : disponible en local uniquement, pour l'équipe.</Notice>
+          <Notice tone="warning">Connexion par mot de passe : réservée à l'équipe et aux comptes de test.</Notice>
           <Field label="Email">
             {(id) => <Input id={id} type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />}
           </Field>
@@ -154,9 +154,9 @@ export default function Connexion() {
           >
             J'ai déjà un code
           </button>
-          {PASSWORD_LOGIN && (
+          {showPassword && (
             <button type="button" className="w-full text-center text-sm font-medium text-stone-500" onClick={() => { setError(null); setStep("password"); }}>
-              Mot de passe (local)
+              Connexion par mot de passe
             </button>
           )}
         </form>

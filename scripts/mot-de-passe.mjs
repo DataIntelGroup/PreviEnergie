@@ -1,6 +1,6 @@
-// Définit le mot de passe d'un compte de l'équipe (admin ou support), pour se
-// connecter en local (npm run dev, « Mot de passe (local) » sur /connexion)
-// sans attendre d'email. Le mot de passe est saisi deux fois, masqué, et
+// Définit le mot de passe d'un compte de l'équipe (admin ou support) ou d'un
+// compte de test, pour se connecter sans attendre d'email : en ligne sur
+// /connexion?mdp, ou en local sur /connexion. Le mot de passe est saisi deux fois, masqué, et
 // n'est ni affiché ni enregistré : il part directement chez Supabase.
 //   npm run mot-de-passe -- prenom@exemple.com
 import { createInterface } from "node:readline";
@@ -56,8 +56,10 @@ async function main() {
   if (!profile) {
     return fail(`Aucun compte pour ${email}.`);
   }
-  if (profile.role !== "admin" && profile.role !== "support") {
-    return fail("Réservé aux comptes de l'équipe (admin ou support) : les clients se connectent avec un code par email.");
+  // Équipe, ou compte de test (domaines .test, qui ne reçoivent jamais d'email).
+  const testAccount = email.endsWith("@previenergie.test") || email.endsWith("@demo.previenergie.test");
+  if (profile.role !== "admin" && profile.role !== "support" && !testAccount) {
+    return fail("Réservé à l'équipe (admin ou support) et aux comptes de test : les vrais clients se connectent avec un code par email.");
   }
 
   const first = await ask(`Nouveau mot de passe pour ${email} (12 caractères au moins) : `);
@@ -70,7 +72,7 @@ async function main() {
   }
   await call("PUT", `/auth/v1/admin/users/${profile.id}`, { password: first });
   console.log(`Mot de passe enregistré pour ${email} (${profile.role}).`);
-  console.log("En local : npm run dev, puis /connexion › « Mot de passe (local) ».");
+  console.log("Connexion : https://previenergie.vercel.app/connexion?mdp (ou en local, http://localhost:5173/connexion).");
 }
 
 await main();
