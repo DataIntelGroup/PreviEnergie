@@ -1,7 +1,7 @@
 // Connexion par email avec un code à 6 chiffres, sans mot de passe (BF-01).
-// Le compte est créé à la première connexion. Connexion par mot de passe pour
-// l'équipe et les comptes de test : en local, ou en ligne avec /connexion?mdp
-// (lien non affiché aux clients). Mot de passe : npm run mot-de-passe.
+// Le compte est créé à la première connexion. Les comptes qui ont un mot de
+// passe (équipe, comptes de test : npm run mot-de-passe) peuvent aussi se
+// connecter par email et mot de passe ; /connexion?mdp ouvre directement ce formulaire.
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { BareLayout } from "@/components/Layout";
@@ -16,9 +16,8 @@ const RESEND_DELAY = 60;
 export default function Connexion() {
   const { session } = useAuth();
   const [params] = useSearchParams();
-  const [step, setStep] = useState<"email" | "code" | "password">("email");
+  const [step, setStep] = useState<"email" | "code" | "password">(() => (params.has("mdp") ? "password" : "email"));
   const [password, setPassword] = useState("");
-  const showPassword = import.meta.env.DEV || params.has("mdp");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
@@ -108,7 +107,6 @@ export default function Connexion() {
 
       {step === "password" ? (
         <form onSubmit={passwordLogin} className="mt-8 space-y-4" noValidate>
-          <Notice tone="warning">Connexion par mot de passe : réservée à l'équipe et aux comptes de test.</Notice>
           <Field label="Email">
             {(id) => <Input id={id} type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />}
           </Field>
@@ -154,11 +152,9 @@ export default function Connexion() {
           >
             J'ai déjà un code
           </button>
-          {showPassword && (
-            <button type="button" className="w-full text-center text-sm font-medium text-stone-500" onClick={() => { setError(null); setStep("password"); }}>
-              Connexion par mot de passe
-            </button>
-          )}
+          <button type="button" className="w-full text-center text-sm font-medium text-stone-500" onClick={() => { setError(null); setStep("password"); }}>
+            Se connecter avec un mot de passe
+          </button>
         </form>
       ) : (
         <form onSubmit={verify} className="mt-8 space-y-4" noValidate>

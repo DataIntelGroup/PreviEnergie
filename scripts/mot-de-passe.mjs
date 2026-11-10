@@ -72,7 +72,7 @@ async function main() {
   }
   await call("PUT", `/auth/v1/admin/users/${profile.id}`, { password: first });
   console.log(`Mot de passe enregistré pour ${email} (${profile.role}).`);
-  console.log("Connexion : https://previenergie.vercel.app/connexion?mdp (ou en local, http://localhost:5173/connexion).");
+  console.log("Connexion : https://previenergie.vercel.app/connexion, lien « Se connecter avec un mot de passe ».");
 }
 
 await main();
