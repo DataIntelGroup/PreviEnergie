@@ -115,6 +115,19 @@ async function main() {
     const { rows } = await db.query("select email, plan_code from profiles where id = $1", [A]);
     assert(rows[0]?.email === "awa@previenergie.test" && rows[0].plan_code === "gratuit");
   });
+  await check("compte créé avec un numéro : pas d'email au profil, numéro rempli, notifications seulement", async () => {
+    const { rows } = await db.query(
+      "insert into auth.users (email, raw_user_meta_data) values ('0566666666@telephone.previenergie.invalid', '{\"phone\":\"0566666666\"}') returning id",
+    );
+    const p = await db.query("select email, phone, channels from profiles where id = $1", [rows[0].id]);
+    assert(p.rows[0]?.email === null && p.rows[0].phone === "0566666666" && p.rows[0].channels.join() === "push", JSON.stringify(p.rows[0]));
+    await db.query("delete from auth.users where id = $1", [rows[0].id]);
+  });
+  await check("compte créé avec un numéro déjà pris : refusé", async () => {
+    await db.query("insert into auth.users (email, raw_user_meta_data) values ('0577777777@telephone.previenergie.invalid', '{\"phone\":\"0577777777\"}')");
+    await rejects(() => db.query("insert into auth.users (email, raw_user_meta_data) values ('x0577777777@telephone.previenergie.invalid', '{\"phone\":\"0577777777\"}')"), /unique|duplicate/);
+    await db.query("delete from auth.users where email = '0577777777@telephone.previenergie.invalid'");
+  });
   await check("anon ne lit pas les profils", () => rejects(() => anon((q) => q("select * from profiles")), /42501|permission/));
   await check("anon lit les offres actives seulement, sans pouvoir les modifier", async () => {
     await db.query("update plans set active = false where code = 'famille_pro'");

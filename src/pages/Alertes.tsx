@@ -109,13 +109,14 @@ export default function Alertes() {
           {(["push", "email", "whatsapp", "sms"] as Channel[]).map((c) => {
             const included = planChannels.includes(c);
             const on = c === "push" ? push === "on" && profile.channels.includes("push") : profile.channels.includes(c) && (c !== "whatsapp" || !!profile.whatsapp_consent_at) && (c !== "sms" || !!profile.sms_consent_at);
-            const unavailable = c === "push" && (push === "unsupported" || push === "ios-install" || push === "denied" || push === "unconfigured");
+            const noEmail = c === "email" && !profile.email;
+            const unavailable = noEmail || (c === "push" && (push === "unsupported" || push === "ios-install" || push === "denied" || push === "unconfigured"));
             return (
               <div key={c}>
                 <Toggle
                   label={CHANNEL_LABELS[c]}
-                  description={included ? DESCRIPTIONS[c] : "Inclus dans les offres Essentiel et Famille / Pro."}
-                  checked={on && included}
+                  description={noEmail ? "Ton compte a été créé avec ton numéro, sans email." : included ? DESCRIPTIONS[c] : "Inclus dans les offres Essentiel et Famille / Pro."}
+                  checked={on && included && !noEmail}
                   disabled={!included || unavailable || busy === c}
                   onChange={(v) => void toggleChannel(c, v)}
                 />

@@ -9,6 +9,7 @@ import { deleteAccount } from "../_shared/compte.ts";
 import { loadSettings } from "../_shared/donnees.ts";
 import { inSegment, MESSAGE_LIMITS, MESSAGE_LINKS, type MessageLink, personalize, type Segment, SEGMENTS } from "../_shared/segments.ts";
 import { inQuietHours, localParts } from "../_shared/temps.ts";
+import { normalizePhone } from "../_shared/validation.ts";
 import { adminClient, handler, HttpError, json, readJson, requireUser } from "../_shared/serveur.ts";
 
 type Channel = "push" | "email";
@@ -108,13 +109,14 @@ Deno.serve(handler(async (req) => {
   if (b.action === "supprimer") {
     if (!b.userId) throw new HttpError(400, "Client manquant");
     if (b.userId === user.id) throw new HttpError(400, "Tu ne peux pas supprimer ton propre compte d'ici");
-    const { data: target } = await db.from("profiles").select("email, role, first_name, last_name").eq("id", b.userId).maybeSingle();
+    const { data: target } = await db.from("profiles").select("email, phone, role, first_name, last_name").eq("id", b.userId).maybeSingle();
     if (!target) throw new HttpError(404, "Client introuvable");
     if (target.role !== "user") throw new HttpError(400, "Retire d'abord son rôle d'équipe avant de supprimer ce compte");
-    if (!target.email || (b.confirm ?? "").trim().toLowerCase() !== target.email.toLowerCase()) {
-      throw new HttpError(400, "Recopie exactement l'email du client pour confirmer");
-    }
-    await deleteAccount(db, b.userId, user.id, { by: "admin", email: target.email, name: `${target.first_name ?? ""} ${target.last_name ?? ""}`.trim() });
+    // Confirmation : l'email, ou le numéro pour un compte créé sans email.
+    const typed = (b.confirm ?? "").trim();
+    const confirmed = target.email ? typed.toLowerCase() === target.email.toLowerCase() : !!target.phone && normalizePhone(typed) === target.phone;
+    if (!confirmed) throw new HttpError(400, target.email ? "Recopie exactement l'email du client pour confirmer" : "Recopie exactement le numéro du client pour confirmer");
+    await deleteAccount(db, b.userId, user.id, { by: "admin", email: target.email ?? target.phone, name: `${target.first_name ?? ""} ${target.last_name ?? ""}`.trim() });
     return json(req, { ok: true });
   }
 

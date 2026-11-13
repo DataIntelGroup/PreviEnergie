@@ -20,6 +20,21 @@ export function formatPhone(p: string): string {
   return p.replace(/(\d{2})(?=\d)/g, "$1 ");
 }
 
+/**
+ * Compte créé avec un numéro : Supabase exige un email, on lui donne une
+ * adresse interne en `.invalid` (domaine réservé, jamais livrable). Elle
+ * n'est jamais affichée ni copiée dans le profil (voir handle_new_user).
+ */
+export const PHONE_EMAIL_DOMAIN = "telephone.previenergie.invalid";
+
+export function phoneEmail(phone: string): string {
+  return `${normalizePhone(phone)}@${PHONE_EMAIL_DOMAIN}`;
+}
+
+export function isPhoneEmail(email: string | null | undefined): boolean {
+  return !!email && email.toLowerCase().endsWith(`@${PHONE_EMAIL_DOMAIN}`);
+}
+
 /** Longueur minimale d'un mot de passe (même réglage côté Supabase : npm run deploy -- auth). */
 export const PASSWORD_MIN = 8;
 

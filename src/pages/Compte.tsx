@@ -127,7 +127,7 @@ export default function Compte() {
         </span>
         <div className="min-w-0 flex-1">
         <p className="text-lg font-semibold">{profile.first_name} {profile.last_name}</p>
-        <p className="text-sm text-stone-500">{profile.email}</p>
+        <p className="text-sm text-stone-500">{profile.email ?? "Compte créé avec ton numéro"}</p>
         <p className="text-sm text-stone-500">{profile.phone ? formatPhone(profile.phone) : ""}{profile.commune ? ` · ${profile.commune}` : ""}</p>
         </div>
         <Button variant="secondary" className="sm:w-auto" onClick={() => setEditing(true)}>Modifier mon profil</Button>

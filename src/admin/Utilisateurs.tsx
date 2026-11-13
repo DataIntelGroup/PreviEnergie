@@ -2,7 +2,7 @@
 // email ; fiche client avec message (push, email), offre, rôle, prolongation
 // d'essai, suspension et suppression (admin seulement).
 import { alertLabel, CHANNEL_LABELS, type Channel } from "@shared/reglages.ts";
-import { formatPhone } from "@shared/validation.ts";
+import { formatPhone, normalizePhone } from "@shared/validation.ts";
 import { useEffect, useState } from "react";
 import { Icon } from "@/components/icons";
 import { Button, Field, Input, Notice, Select, Sheet, Spinner, useToast, Card } from "@/components/ui";
@@ -54,6 +54,9 @@ const PAGE = 30;
 type Tab = "profil" | "message" | "gerer";
 
 const fullName = (u: UserRow) => `${u.first_name ?? ""} ${u.last_name ?? ""}`.trim();
+/** Suppression : on recopie l'email, ou le numéro pour un compte créé sans email (même règle côté serveur). */
+const confirmMatches = (u: UserRow, typed: string) =>
+  u.email ? typed.trim().toLowerCase() === u.email.toLowerCase() : !!u.phone && normalizePhone(typed) === u.phone;
 
 export default function Utilisateurs() {
   const { isAdmin, reload } = useAdmin();
@@ -207,7 +210,7 @@ export default function Utilisateurs() {
                       {u.role !== "user" && <span className="ml-2 rounded bg-brand-100 px-1.5 py-0.5 text-xs text-brand-800">{u.role}</span>}
                       {u.suspended && <span className="ml-2 rounded bg-red-100 px-1.5 py-0.5 text-xs text-red-700">suspendu</span>}
                     </p>
-                    <p className="text-stone-500">{u.email}</p>
+                    <p className="text-stone-500">{u.email ?? "Compte créé avec le numéro"}</p>
                   </td>
                   <td className="tabular px-4 whitespace-nowrap">{u.phone ? formatPhone(u.phone) : "–"}</td>
                   <td className="px-4 whitespace-nowrap">
@@ -276,7 +279,7 @@ export default function Utilisateurs() {
             {(tab === "profil" || !isAdmin) && (
               <>
                 <dl className="grid grid-cols-2 gap-x-4 gap-y-2 text-sm">
-                  <dt className="text-stone-500">Email</dt><dd className="break-all">{sel.email}</dd>
+                  <dt className="text-stone-500">Email</dt><dd className="break-all">{sel.email ?? "Aucun (compte créé avec le numéro)"}</dd>
                   <dt className="text-stone-500">Téléphone</dt><dd>{sel.phone ? formatPhone(sel.phone) : "–"}</dd>
                   <dt className="text-stone-500">Commune</dt><dd>{sel.commune ?? "–"}</dd>
                   <dt className="text-stone-500">Source</dt><dd>{sel.source ?? "–"}</dd>
@@ -391,14 +394,14 @@ export default function Utilisateurs() {
                     <Button variant="secondary" className="w-full text-red-700 ring-red-300 hover:bg-red-100" onClick={() => setDeleting(true)}>Supprimer ce compte…</Button>
                   ) : (
                     <div className="space-y-2">
-                      <Field label={`Recopie l'email du client pour confirmer : ${sel.email}`}>
+                      <Field label={sel.email ? `Recopie l'email du client pour confirmer : ${sel.email}` : `Recopie le numéro du client pour confirmer : ${sel.phone ?? ""}`}>
                         {(id) => <Input id={id} value={confirmEmail} autoComplete="off" onChange={(e) => setConfirmEmail(e.target.value)} />}
                       </Field>
                       <div className="grid grid-cols-2 gap-2">
                         <Button variant="secondary" onClick={() => { setDeleting(false); setConfirmEmail(""); }}>Annuler</Button>
                         <Button
                           className="bg-red-600 hover:bg-red-700 active:bg-red-800 disabled:bg-red-200"
-                          disabled={confirmEmail.trim().toLowerCase() !== (sel.email ?? "").toLowerCase()}
+                          disabled={!confirmMatches(sel, confirmEmail)}
                           loading={busy === "supprimer"}
                           onClick={() => void remove()}
                         >

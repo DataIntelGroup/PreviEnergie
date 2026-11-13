@@ -20,11 +20,15 @@ Deno.serve(handler(async (req) => {
     .eq("phone", p).eq("success", false).gte("created_at", new Date(Date.now() - WINDOW_MS).toISOString());
   if ((count ?? 0) >= MAX_FAILURES) throw new HttpError(429, "Trop d'essais : réessaie dans 15 minutes, ou connecte-toi avec ton email.");
 
-  const { data: profile } = await db.from("profiles").select("email").eq("phone", p).maybeSingle();
+  // L'email de connexion est celui du compte Supabase (adresse interne pour
+  // un compte créé avec le numéro), pas celui du profil, vide dans ce cas.
+  const { data: profile } = await db.from("profiles").select("id").eq("phone", p).maybeSingle();
   let session: { access_token: string; refresh_token: string } | null = null;
-  if (profile?.email) {
+  const { data: account } = profile ? await db.auth.admin.getUserById(profile.id) : { data: null };
+  const email = account?.user?.email;
+  if (email) {
     const auth = createClient(requireEnv("SUPABASE_URL"), requireEnv("SUPABASE_ANON_KEY"), { auth: { persistSession: false, autoRefreshToken: false } });
-    const { data, error } = await auth.auth.signInWithPassword({ email: profile.email, password });
+    const { data, error } = await auth.auth.signInWithPassword({ email, password });
     if (!error && data.session) session = data.session;
   }
 

@@ -1,6 +1,7 @@
 // Mise en page de l'application. Ordinateur : barre latérale et contenu large.
 // Téléphone : en-tête compact et barre d'onglets avec le bouton « Relever ».
 import type { ReactNode } from "react";
+import { formatPhone } from "@shared/validation.ts";
 import { Link, NavLink, Outlet, useLocation } from "react-router-dom";
 import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data";
@@ -114,7 +115,7 @@ export function AppLayout() {
             </span>
             <div className="min-w-0 flex-1">
               <p className="truncate text-sm font-semibold">{profile?.first_name} {profile?.last_name}</p>
-              <p className="truncate text-xs text-stone-500">{profile?.email}</p>
+              <p className="truncate text-xs text-stone-500">{profile?.email ?? (profile?.phone ? formatPhone(profile.phone) : "")}</p>
             </div>
             <button onClick={() => void signOut()} className="rounded-lg p-2 text-stone-500 hover:bg-stone-100" aria-label="Me déconnecter" title="Me déconnecter">
               <Icon name="logout" className="h-5 w-5" />
@@ -183,7 +184,7 @@ function Tab({ to, label, icon, end }: (typeof TABS)[number]) {
 }
 
 /** Pages hors application : connexion, profil obligatoire, confidentialité. */
-export function BareLayout({ children, aside = true }: { children: ReactNode; aside?: boolean }) {
+export function BareLayout({ children, aside = true, back = false }: { children: ReactNode; aside?: boolean; back?: boolean }) {
   return (
     <div className="min-h-dvh bg-white lg:grid lg:grid-cols-2">
       {aside && (
@@ -204,7 +205,18 @@ export function BareLayout({ children, aside = true }: { children: ReactNode; as
         </div>
       )}
       <div className="mx-auto flex min-h-dvh w-full max-w-md flex-col px-5 py-8 lg:justify-center">
-        <Link to={R.accueilPublic} className={`mb-10 ${aside ? "lg:hidden" : ""}`}><Brand /></Link>
+        <div className={`mb-10 flex items-center justify-between gap-4 ${aside && !back ? "lg:hidden" : ""}`}>
+          <Link to={R.accueilPublic} className={aside ? "lg:hidden" : ""}><Brand /></Link>
+          {back && (
+            <Link
+              to={R.accueilPublic}
+              className="group inline-flex items-center gap-2 rounded-full border border-stone-200 bg-white py-2 pr-4 pl-3 text-sm font-semibold text-stone-700 shadow-sm transition hover:border-brand-300 hover:text-brand-700"
+            >
+              <Icon name="arrowLeft" className="h-4 w-4 transition group-hover:-translate-x-0.5" />
+              Accueil
+            </Link>
+          )}
+        </div>
         <div className="flex-1 lg:flex-none">{children}</div>
         <Independence className={`mt-10 ${aside ? "lg:hidden" : ""}`} />
       </div>

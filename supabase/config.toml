@@ -30,3 +30,7 @@ verify_jwt = false
 # Connexion par numéro et mot de passe : appelée avant d'être connecté.
 [functions.connexion]
 verify_jwt = false
+
+# Création de compte par numéro et mot de passe : appelée avant d'être connecté.
+[functions.inscription]
+verify_jwt = false

@@ -74,12 +74,32 @@ export default function Connexion() {
 
   async function signUp(e?: FormEvent) {
     e?.preventDefault();
-    const clean = email.trim().toLowerCase();
-    if (!EMAIL_RE.test(clean)) return setError("Entre une adresse email valide.");
+    const id = email.trim();
+    const byPhone = !id.includes("@");
+    const clean = id.toLowerCase();
+    if (byPhone ? !isValidPhone(id) : !EMAIL_RE.test(clean)) {
+      return setError(byPhone ? "Entre ton email, ou un numéro de 10 chiffres commençant par 01, 05, 07, 21, 25 ou 27." : "Entre une adresse email valide.");
+    }
     if (password.length < PASSWORD_MIN) return setError(`Le mot de passe doit faire au moins ${PASSWORD_MIN} caractères.`);
     if (password !== password2) return setError("Les deux mots de passe sont différents.");
     setBusy(true);
     setError(null);
+    if (byPhone) {
+      try {
+        const tokens = await callFunction<{ access_token: string; refresh_token: string }>("inscription", {
+          phone: normalizePhone(id),
+          password,
+          source: params.get("source") ?? params.get("utm_source") ?? "",
+        });
+        const { error } = await supabase.auth.setSession(tokens);
+        if (error) throw error;
+      } catch (err) {
+        setError(errorMessage(err));
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     const { data, error } = await supabase.auth.signUp({
       email: clean,
       password,
@@ -160,7 +180,7 @@ export default function Connexion() {
   );
 
   return (
-    <BareLayout>
+    <BareLayout back>
       <h1 className="text-3xl font-extrabold text-stone-900">Plus jamais de coupure surprise.</h1>
       <p className="mt-3 text-stone-600">
         Envoie un relevé de ton compteur en quelques secondes, PréviÉnergie calcule ta consommation et te prévient avant la coupure.
@@ -195,8 +215,8 @@ export default function Connexion() {
 
       {step === "inscription" && (
         <form onSubmit={signUp} className="mt-6 space-y-4" noValidate>
-          <Field label="Ton adresse email">
-            {(id) => <Input id={id} type="email" inputMode="email" autoComplete="email" placeholder="prenom@exemple.com" value={email} onChange={(e) => setEmail(e.target.value)} />}
+          <Field label="Email ou numéro de téléphone">
+            {(id) => <Input id={id} autoComplete="username" inputMode="email" placeholder="prenom@exemple.com ou 07 00 00 00 00" value={email} onChange={(e) => setEmail(e.target.value)} />}
           </Field>
           <Field label="Choisis un mot de passe" hint={`${PASSWORD_MIN} caractères au moins.`}>
             {(id) => <Input id={id} type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />}
@@ -206,13 +226,20 @@ export default function Connexion() {
           </Field>
           {error && <Notice tone="error">{error}</Notice>}
           <Button type="submit" loading={busy} className="w-full">Créer mon compte</Button>
-          <p className="text-center text-sm text-stone-500">Ensuite : ton prénom, ton nom et ton numéro. Tu pourras te connecter avec l'email ou le numéro.</p>
+          <p className="text-center text-sm text-stone-500">
+            {email.trim() && !email.includes("@")
+              ? "Garde bien ton mot de passe : sans email, il ne peut pas être renvoyé automatiquement."
+              : "Ensuite : ton prénom, ton nom et ton numéro. Tu pourras te connecter avec l'email ou le numéro."}
+          </p>
         </form>
       )}
 
       {step === "code-email" && (
         <form onSubmit={sendCode} className="mt-8 space-y-4" noValidate>
           <p className="text-stone-700">On t'envoie un code à 6 chiffres pour te connecter. Une fois dedans, choisis un nouveau mot de passe dans « Mon compte ».</p>
+          <p className="text-sm text-stone-500">
+            Compte créé avec ton numéro, sans email ? Écris-nous à <a href="mailto:contact@previenergie.ci" className="font-medium text-brand-700">contact@previenergie.ci</a> depuis n'importe quelle adresse, avec ton numéro : on te redonne l'accès.
+          </p>
           <Field label="Ton adresse email">
             {(id) => <Input id={id} type="email" inputMode="email" autoComplete="email" placeholder="prenom@exemple.com" value={email} onChange={(e) => setEmail(e.target.value)} />}
           </Field>

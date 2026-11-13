@@ -12,7 +12,7 @@ Référence fonctionnelle : [docs/EXPRESSION_DE_BESOIN.md](docs/EXPRESSION_DE_BE
 | Back-office | `src/admin/` | Chargé à part (`/admin`), réservé aux rôles `admin` et `support`. |
 | Moteur partagé | `supabase/functions/_shared/` | `prevision.ts` (consommation, moyenne pondérée, jours restants), `alertes.ts` (règles d'envoi), `reglages.ts` (valeurs par défaut). TypeScript pur, importé par l'app (`@shared/…`) **et** par les fonctions serveur. |
 | Base | `supabase/migrations/` | Tables, RLS sur toutes les tables, fonctions du back-office, paiement, stockage des photos. |
-| Fonctions Edge | `supabase/functions/*` | `connexion` (numéro et mot de passe), `admin-clients` (actions de l'équipe), `prevision`, `alertes` (tâche horaire), `paiement`, `paiement-notif` (CinetPay), `test-notification`, `supprimer-compte`. |
+| Fonctions Edge | `supabase/functions/*` | `connexion` (numéro et mot de passe), `inscription` (compte créé avec un numéro et un mot de passe, sans SMS : adresse interne `<numéro>@telephone.previenergie.invalid` côté Supabase, profil sans email, alertes par notification ; mot de passe oublié : par le support), `admin-clients` (actions de l'équipe), `prevision`, `alertes` (tâche horaire), `paiement`, `paiement-notif` (CinetPay), `test-notification`, `supprimer-compte`. |
 
 Points clés :
 - La prévision est calculée dans le navigateur pour un affichage immédiat, et sur le serveur chaque heure pour les alertes, avec le même code.
