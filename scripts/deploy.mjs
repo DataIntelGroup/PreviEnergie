@@ -278,6 +278,11 @@ async function auth() {
     disable_signup: false,
     mailer_otp_length: 6,
     mailer_otp_exp: 600,
+    // Connexion par email ou numéro et mot de passe (src/pages/Connexion.tsx).
+    password_min_length: 8,
+    // Sans SMTP, l'email de confirmation ne part pas : le compte est actif dès
+    // l'inscription. À repasser à false une fois le SMTP branché.
+    mailer_autoconfirm: !process.env.SMTP_HOST,
   };
   // Service SMTP (Resend, Brevo…) : indispensable avant l'ouverture au public.
   // Sur le plan gratuit, Supabase refuse de changer le modèle d'email sans

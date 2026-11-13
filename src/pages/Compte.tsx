@@ -1,5 +1,5 @@
-// Compte : profil (BF-03), compteurs, offre, export et suppression des données.
-import { formatPhone } from "@shared/validation.ts";
+// Compte : profil (BF-03), mot de passe, compteurs, offre, export et suppression des données.
+import { formatPhone, PASSWORD_MIN } from "@shared/validation.ts";
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ProfileForm } from "@/components/ProfileForm";
@@ -10,6 +10,45 @@ import { fmtDateLong } from "@/lib/format";
 import { callFunction, errorMessage, supabase } from "@/lib/supabase";
 import { effectivePlanCode } from "@/lib/types";
 import { R } from "@/lib/routes";
+
+/** Choisir ou changer son mot de passe (connexion par email ou numéro). */
+function PasswordCard() {
+  const toast = useToast();
+  const [pwd, setPwd] = useState("");
+  const [pwd2, setPwd2] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  async function save() {
+    if (pwd.length < PASSWORD_MIN) return setError(`${PASSWORD_MIN} caractères au moins.`);
+    if (pwd !== pwd2) return setError("Les deux mots de passe sont différents.");
+    setBusy(true);
+    setError(null);
+    const { error } = await supabase.auth.updateUser({ password: pwd });
+    setBusy(false);
+    if (error) return setError(/different from the old|same/i.test(error.message) ? "C'est déjà ton mot de passe actuel." : errorMessage(error));
+    setPwd("");
+    setPwd2("");
+    toast("Mot de passe enregistré");
+  }
+
+  return (
+    <Card className="space-y-3">
+      <div>
+        <h2 className="font-semibold">Mot de passe</h2>
+        <p className="text-sm text-stone-500">Pour te connecter avec ton email ou ton numéro de téléphone.</p>
+      </div>
+      <Field label="Nouveau mot de passe" hint={`${PASSWORD_MIN} caractères au moins.`}>
+        {(id) => <Input id={id} type="password" autoComplete="new-password" value={pwd} onChange={(e) => setPwd(e.target.value)} />}
+      </Field>
+      <Field label="Retape-le">
+        {(id) => <Input id={id} type="password" autoComplete="new-password" value={pwd2} onChange={(e) => setPwd2(e.target.value)} />}
+      </Field>
+      {error && <Notice tone="error">{error}</Notice>}
+      <Button variant="secondary" className="w-full" loading={busy} disabled={!pwd || !pwd2} onClick={() => void save()}>Enregistrer le mot de passe</Button>
+    </Card>
+  );
+}
 
 function Row({ to, label, value }: { to: string; label: string; value?: string }) {
   return (
@@ -103,6 +142,8 @@ export default function Compte() {
       {profile.plan_expires_at && plan?.code !== "gratuit" && (
         <p className="text-sm text-stone-500">Offre active jusqu'au {fmtDateLong(profile.plan_expires_at)}.</p>
       )}
+
+      <PasswordCard />
 
       <Card className="space-y-3">
         <h2 className="font-semibold">Mes données</h2>

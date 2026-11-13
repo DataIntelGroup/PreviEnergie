@@ -20,6 +20,9 @@ export function formatPhone(p: string): string {
   return p.replace(/(\d{2})(?=\d)/g, "$1 ");
 }
 
+/** Longueur minimale d'un mot de passe (même réglage côté Supabase : npm run deploy -- auth). */
+export const PASSWORD_MIN = 8;
+
 export const PAYMENT_METHODS = ["wave", "orange_money", "mtn_momo", "moov_money", "carte", "especes", "autre"] as const;
 export type PaymentMethod = (typeof PAYMENT_METHODS)[number];
 

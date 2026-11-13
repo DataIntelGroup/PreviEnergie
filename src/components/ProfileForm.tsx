@@ -37,7 +37,8 @@ export function ProfileForm({ profile, submitLabel, onSaved }: { profile: Profil
       .eq("id", profile.id);
     if (error) {
       setBusy(false);
-      setError(errorMessage(error));
+      // Le numéro sert aussi d'identifiant de connexion : un seul compte par numéro.
+      setError(/profiles_phone_unique|duplicate key/i.test(error.message) ? "Ce numéro est déjà utilisé par un autre compte." : errorMessage(error));
       return;
     }
     await refreshProfile();

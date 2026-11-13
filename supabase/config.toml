@@ -26,3 +26,7 @@ verify_jwt = false
 # Appelée par CinetPay : le statut est toujours revérifié auprès de CinetPay.
 [functions.paiement-notif]
 verify_jwt = false
+
+# Connexion par numéro et mot de passe : appelée avant d'être connecté.
+[functions.connexion]
+verify_jwt = false

@@ -1,27 +1,33 @@
-// Connexion par email avec un code à 6 chiffres, sans mot de passe (BF-01).
-// Le compte est créé à la première connexion. Les comptes qui ont un mot de
-// passe (équipe, comptes de test : npm run mot-de-passe) peuvent aussi se
-// connecter par email et mot de passe ; /connexion?mdp ouvre directement ce formulaire.
-import { type FormEvent, useEffect, useRef, useState } from "react";
+// Connexion (BF-01) : email ou numéro de téléphone, et mot de passe. Création
+// de compte par email et mot de passe ; le profil (prénom, nom, numéro) est
+// demandé juste après. Mot de passe oublié ou compte sans mot de passe :
+// code à 6 chiffres par email, puis « Mon compte » pour en choisir un.
+import { isValidPhone, normalizePhone, PASSWORD_MIN } from "@shared/validation.ts";
+import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
 import { BareLayout } from "@/components/Layout";
 import { Button, Field, Input, Notice } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { safeNext } from "@/lib/routes";
-import { errorMessage, isConfigured, supabase } from "@/lib/supabase";
+import { callFunction, errorMessage, isConfigured, supabase } from "@/lib/supabase";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
 const RESEND_DELAY = 60;
 
+type Step = "connexion" | "inscription" | "code-email" | "code";
+
 export default function Connexion() {
   const { session } = useAuth();
   const [params] = useSearchParams();
-  const [step, setStep] = useState<"email" | "code" | "password">(() => (params.has("mdp") ? "password" : "email"));
-  const [password, setPassword] = useState("");
+  const [step, setStep] = useState<Step>(params.has("inscription") ? "inscription" : "connexion");
+  const [login, setLogin] = useState("");
   const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [password2, setPassword2] = useState("");
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [info, setInfo] = useState<string | null>(null);
   const [wait, setWait] = useState(0);
   const codeRef = useRef<HTMLInputElement>(null);
 
@@ -37,40 +43,94 @@ export default function Connexion() {
 
   if (session) return <Navigate to={safeNext(params.get("suite"))} replace />;
 
-  async function sendCode(e?: FormEvent) {
+  const go = (s: Step) => {
+    setStep(s);
+    setError(null);
+    setInfo(null);
+  };
+
+  async function signIn(e?: FormEvent) {
     e?.preventDefault();
-    const clean = email.trim().toLowerCase();
-    if (!EMAIL_RE.test(clean)) {
-      setError("Entre une adresse email valide.");
-      return;
-    }
+    const id = login.trim();
+    if (!id || !password) return setError("Entre ton email ou ton numéro, et ton mot de passe.");
     setBusy(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithOtp({
+    try {
+      if (id.includes("@")) {
+        const { error } = await supabase.auth.signInWithPassword({ email: id.toLowerCase(), password });
+        if (error) throw new Error(error.status === 400 ? "Email ou mot de passe incorrect." : errorMessage(error));
+      } else {
+        if (!isValidPhone(id)) throw new Error("Numéro invalide : 10 chiffres commençant par 01, 05, 07, 21, 25 ou 27.");
+        const tokens = await callFunction<{ access_token: string; refresh_token: string }>("connexion", { phone: normalizePhone(id), password });
+        const { error } = await supabase.auth.setSession(tokens);
+        if (error) throw error;
+      }
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function signUp(e?: FormEvent) {
+    e?.preventDefault();
+    const clean = email.trim().toLowerCase();
+    if (!EMAIL_RE.test(clean)) return setError("Entre une adresse email valide.");
+    if (password.length < PASSWORD_MIN) return setError(`Le mot de passe doit faire au moins ${PASSWORD_MIN} caractères.`);
+    if (password !== password2) return setError("Les deux mots de passe sont différents.");
+    setBusy(true);
+    setError(null);
+    const { data, error } = await supabase.auth.signUp({
       email: clean,
+      password,
       options: {
-        shouldCreateUser: true,
         emailRedirectTo: `${window.location.origin}${safeNext(params.get("suite"))}`,
         data: { source: params.get("source") ?? params.get("utm_source") ?? "" },
       },
     });
     setBusy(false);
     if (error) {
-      setError(error.status === 429 ? "Trop de demandes. Attends une minute avant de redemander un code." : errorMessage(error));
-      return;
+      return setError(/already|registered|exists/i.test(error.message) ? "Un compte existe déjà avec cet email : connecte-toi, ou « Mot de passe oublié »." : errorMessage(error));
+    }
+    // Email déjà pris (Supabase ne le dit pas toujours) : aucune identité créée.
+    if (data.user && data.user.identities?.length === 0) {
+      return setError("Un compte existe déjà avec cet email : connecte-toi, ou « Mot de passe oublié ».");
+    }
+    if (!data.session) {
+      setEmail(clean);
+      setInfo(`Compte créé. Ouvre l'email envoyé à ${clean} pour le confirmer, puis connecte-toi.`);
+      go("connexion");
+      setLogin(clean);
+    }
+  }
+
+  async function sendCode(e?: FormEvent) {
+    e?.preventDefault();
+    const clean = email.trim().toLowerCase();
+    if (!EMAIL_RE.test(clean)) return setError("Entre une adresse email valide.");
+    setBusy(true);
+    setError(null);
+    const { error } = await supabase.auth.signInWithOtp({
+      email: clean,
+      options: { shouldCreateUser: false, emailRedirectTo: `${window.location.origin}${safeNext(params.get("suite"))}` },
+    });
+    setBusy(false);
+    if (error) {
+      return setError(
+        error.status === 429 ? "Trop de demandes. Attends une minute avant de redemander un code."
+        : /signups not allowed|not found/i.test(error.message) ? "Aucun compte avec cet email : crée ton compte."
+        : errorMessage(error),
+      );
     }
     setEmail(clean);
-    setStep("code");
+    go("code");
     setWait(RESEND_DELAY);
   }
 
   async function verify(e?: FormEvent) {
     e?.preventDefault();
     const token = code.replace(/\D/g, "");
-    if (token.length !== 6) {
-      setError("Le code contient 6 chiffres.");
-      return;
-    }
+    if (token.length !== 6) return setError("Le code contient 6 chiffres.");
     setBusy(true);
     setError(null);
     const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
@@ -78,19 +138,26 @@ export default function Connexion() {
     if (error) setError("Code incorrect ou expiré. Vérifie l'email reçu ou demande un nouveau code.");
   }
 
-  async function passwordLogin(e?: FormEvent) {
-    e?.preventDefault();
-    const clean = email.trim().toLowerCase();
-    if (!EMAIL_RE.test(clean) || !password) {
-      setError("Entre ton email et ton mot de passe.");
-      return;
-    }
-    setBusy(true);
-    setError(null);
-    const { error } = await supabase.auth.signInWithPassword({ email: clean, password });
-    setBusy(false);
-    if (error) setError(error.status === 400 ? "Email ou mot de passe incorrect." : errorMessage(error));
-  }
+  const tabs = (
+    <div className="mt-8 grid grid-cols-2 gap-1 rounded-2xl bg-stone-100 p-1" role="tablist">
+      {([["connexion", "Se connecter"], ["inscription", "Créer un compte"]] as [Step, string][]).map(([s, label]) => (
+        <button
+          key={s}
+          type="button"
+          role="tab"
+          aria-selected={step === s}
+          onClick={() => go(s)}
+          className={`rounded-xl py-2.5 text-sm font-bold transition ${step === s ? "bg-white text-brand-700 shadow-sm" : "text-stone-600 hover:text-stone-900"}`}
+        >
+          {label}
+        </button>
+      ))}
+    </div>
+  );
+
+  const link = (label: ReactNode, onClick: () => void) => (
+    <button type="button" className="font-medium text-brand-700 hover:text-brand-800" onClick={onClick}>{label}</button>
+  );
 
   return (
     <BareLayout>
@@ -105,61 +172,68 @@ export default function Connexion() {
         </Notice>
       )}
 
-      {step === "password" ? (
-        <form onSubmit={passwordLogin} className="mt-8 space-y-4" noValidate>
-          <Field label="Email">
-            {(id) => <Input id={id} type="email" autoComplete="username" value={email} onChange={(e) => setEmail(e.target.value)} />}
+      {(step === "connexion" || step === "inscription") && tabs}
+
+      {step === "connexion" && (
+        <form onSubmit={signIn} className="mt-6 space-y-4" noValidate>
+          {info && <Notice tone="success">{info}</Notice>}
+          <Field label="Email ou numéro de téléphone">
+            {(id) => (
+              <Input id={id} autoComplete="username" inputMode="email" placeholder="prenom@exemple.com ou 07 00 00 00 00" value={login} onChange={(e) => setLogin(e.target.value)} />
+            )}
           </Field>
           <Field label="Mot de passe">
             {(id) => <Input id={id} type="password" autoComplete="current-password" value={password} onChange={(e) => setPassword(e.target.value)} />}
           </Field>
           {error && <Notice tone="error">{error}</Notice>}
           <Button type="submit" loading={busy} className="w-full">Me connecter</Button>
-          <button type="button" className="w-full text-center text-sm font-medium text-brand-700" onClick={() => { setStep("email"); setPassword(""); setError(null); }}>
-            Revenir au code par email
-          </button>
+          <p className="text-center text-sm">
+            {link("Mot de passe oublié ?", () => { setEmail(login.includes("@") ? login.trim() : ""); go("code-email"); })}
+          </p>
         </form>
-      ) : step === "email" ? (
-        <form onSubmit={sendCode} className="mt-8 space-y-4" noValidate>
-          <Field label="Ton adresse email" hint="On t'envoie un code à 6 chiffres. Pas de mot de passe.">
-            {(id) => (
-              <Input
-                id={id}
-                type="email"
-                inputMode="email"
-                autoComplete="email"
-                placeholder="prenom@exemple.com"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-              />
-            )}
+      )}
+
+      {step === "inscription" && (
+        <form onSubmit={signUp} className="mt-6 space-y-4" noValidate>
+          <Field label="Ton adresse email">
+            {(id) => <Input id={id} type="email" inputMode="email" autoComplete="email" placeholder="prenom@exemple.com" value={email} onChange={(e) => setEmail(e.target.value)} />}
+          </Field>
+          <Field label="Choisis un mot de passe" hint={`${PASSWORD_MIN} caractères au moins.`}>
+            {(id) => <Input id={id} type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />}
+          </Field>
+          <Field label="Retape le mot de passe">
+            {(id) => <Input id={id} type="password" autoComplete="new-password" value={password2} onChange={(e) => setPassword2(e.target.value)} />}
           </Field>
           {error && <Notice tone="error">{error}</Notice>}
-          <Button type="submit" loading={busy} className="w-full">
-            Recevoir mon code
-          </Button>
-          <button
-            type="button"
-            className="w-full text-center text-sm font-medium text-brand-700"
-            onClick={() => {
+          <Button type="submit" loading={busy} className="w-full">Créer mon compte</Button>
+          <p className="text-center text-sm text-stone-500">Ensuite : ton prénom, ton nom et ton numéro. Tu pourras te connecter avec l'email ou le numéro.</p>
+        </form>
+      )}
+
+      {step === "code-email" && (
+        <form onSubmit={sendCode} className="mt-8 space-y-4" noValidate>
+          <p className="text-stone-700">On t'envoie un code à 6 chiffres pour te connecter. Une fois dedans, choisis un nouveau mot de passe dans « Mon compte ».</p>
+          <Field label="Ton adresse email">
+            {(id) => <Input id={id} type="email" inputMode="email" autoComplete="email" placeholder="prenom@exemple.com" value={email} onChange={(e) => setEmail(e.target.value)} />}
+          </Field>
+          {error && <Notice tone="error">{error}</Notice>}
+          <Button type="submit" loading={busy} className="w-full">Recevoir un code</Button>
+          <div className="flex justify-between text-sm">
+            {link("← Retour", () => go("connexion"))}
+            {link("J'ai déjà un code", () => {
               const clean = email.trim().toLowerCase();
               if (!EMAIL_RE.test(clean)) return setError("Entre d'abord ton adresse email.");
               setEmail(clean);
-              setError(null);
-              setStep("code");
-            }}
-          >
-            J'ai déjà un code
-          </button>
-          <button type="button" className="w-full text-center text-sm font-medium text-stone-500" onClick={() => { setError(null); setStep("password"); }}>
-            Se connecter avec un mot de passe
-          </button>
+              go("code");
+            })}
+          </div>
         </form>
-      ) : (
+      )}
+
+      {step === "code" && (
         <form onSubmit={verify} className="mt-8 space-y-4" noValidate>
           <p className="text-stone-700">
-            Email envoyé à <strong>{email}</strong>. Saisis le code à 6 chiffres ou touche le lien de l'email. Regarde aussi dans les courriers indésirables.
+            Code envoyé à <strong>{email}</strong>. Saisis les 6 chiffres, ou touche le lien de l'email. Regarde aussi dans les courriers indésirables.
           </p>
           <Field label="Code à 6 chiffres">
             {(id) => (
@@ -173,21 +247,14 @@ export default function Connexion() {
                 placeholder="123456"
                 className="tabular text-center text-2xl tracking-[0.5em]"
                 value={code}
-                onChange={(e) => {
-                  const v = e.target.value.replace(/\D/g, "").slice(0, 6);
-                  setCode(v);
-                }}
+                onChange={(e) => setCode(e.target.value.replace(/\D/g, "").slice(0, 6))}
               />
             )}
           </Field>
           {error && <Notice tone="error">{error}</Notice>}
-          <Button type="submit" loading={busy} className="w-full" disabled={code.length !== 6}>
-            Me connecter
-          </Button>
+          <Button type="submit" loading={busy} className="w-full" disabled={code.length !== 6}>Me connecter</Button>
           <div className="flex justify-between text-sm">
-            <button type="button" className="font-medium text-brand-700" onClick={() => { setStep("email"); setCode(""); setError(null); }}>
-              Changer d'email
-            </button>
+            {link("← Retour", () => { setCode(""); go("connexion"); })}
             <button type="button" className="font-medium text-brand-700 disabled:text-stone-400" disabled={wait > 0 || busy} onClick={() => void sendCode()}>
               {wait > 0 ? `Renvoyer (${wait} s)` : "Renvoyer le code"}
             </button>

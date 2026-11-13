@@ -271,6 +271,15 @@ async function main() {
     const { rows } = await user(A, (q) => q("select count(*)::int n from alerts where type = 'message'"));
     assert(rows[0].n === 1);
   });
+  await check("un numéro de téléphone ne sert qu'à un compte", async () => {
+    const { rows } = await db.query("select phone from profiles where id = $1", [A]);
+    await rejects(() => db.query("update profiles set phone = $1 where id = $2", [rows[0].phone, B]), /profiles_phone_unique|duplicate/);
+  });
+  await check("les tentatives de connexion sont invisibles des utilisateurs", async () => {
+    await db.query("insert into login_attempts (phone, success) values ('0700000000', false)");
+    await rejects(() => user(A, (q) => q("select * from login_attempts")), /42501|permission/);
+    await rejects(() => user(ADMIN, (q) => q("insert into login_attempts (phone, success) values ('0700000000', true)")), /42501|permission/);
+  });
   await check("l'admin ne se retire pas son propre rôle", () =>
     rejects(() => user(ADMIN, (q) => q("select admin_update_user($1, null, null, 'user')", [ADMIN])), /propre rôle/));
   await check("l'admin modifie un réglage, un réglage inconnu est refusé", async () => {
