@@ -1,5 +1,5 @@
 // Données de démonstration : 24 clients fictifs avec compteurs, relevés,
-// recharges, factures, paiements, alertes et lectures IA, pour voir
+// recharges, factures, paiements, alertes et lectures de photos, pour voir
 // l'application et le back-office remplis comme après deux mois de service.
 //
 //   npm run demo            supprime les anciennes données de démo puis recrée tout
@@ -46,7 +46,7 @@ async function demoUsers() {
 async function vider() {
   const users = await demoUsers();
   const ids = users.map((u) => u.id);
-  // Paiements et lectures IA survivent à la suppression d'un compte
+  // Paiements et lectures de photos survivent à la suppression d'un compte
   // (user_id mis à NULL) : on les retire d'abord.
   for (let i = 0; i < ids.length; i += 50) {
     const list = `(${ids.slice(i, i + 50).join(",")})`;
@@ -102,7 +102,7 @@ const PLANS = { essentiel: [1000, 2], famille_pro: [2500, 5], entreprise: [5000,
 const METHODS = [["wave", 45], ["orange_money", 30], ["mtn_momo", 15], ["moov_money", 10]];
 const HOMES = ["Maison", "Appartement", "Studio", "Maison de maman", "Villa"];
 const SHOPS = ["Boutique", "Magasin", "Atelier", "Salon de coiffure", "Restaurant", "Dépôt", "Bureau", "Cave"];
-const MODEL = "claude-opus-5-5";
+const MODEL = "lecture-locale";
 
 const slug = (s) => s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().replace(/[^a-z]/g, "");
 const code20 = () => Array.from({ length: 5 }, () => String(int(0, 9999)).padStart(4, "0")).join(" ");
@@ -365,7 +365,7 @@ async function remplir() {
   const paying = users.filter((u) => u.s.plan && !u.s.expired).length;
   console.log(`Clients de démo : ${users.length} (${paying} abonnés actifs, ${users.filter((u) => !u.s.plan && !u.s.expired).length} en essai, ${users.filter((u) => u.s.expired).length} en lecture seule)`);
   console.log(`Compteurs ${out.meters.length} · relevés ${out.readings.length} · recharges ${out.recharges.length} · factures ${out.bills.length}`);
-  console.log(`Alertes ${out.alerts.length} · lectures IA ${out.aiReads.length} · réponses « coupé ? » ${out.feedback.length} · paiements ${out.payments.length}`);
+  console.log(`Alertes ${out.alerts.length} · lectures de photos ${out.aiReads.length} · réponses « coupé ? » ${out.feedback.length} · paiements ${out.payments.length}`);
   console.log(`\nCompte vitrine côté client : ${VITRINE} (Famille / Pro, 3 compteurs dont un postpayé, une boutique partagée).`);
   console.log("Code de connexion : npm run comptes:test");
 }

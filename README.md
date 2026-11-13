@@ -12,11 +12,11 @@ Référence fonctionnelle : [docs/EXPRESSION_DE_BESOIN.md](docs/EXPRESSION_DE_BE
 | Back-office | `src/admin/` | Chargé à part (`/admin`), réservé aux rôles `admin` et `support`. |
 | Moteur partagé | `supabase/functions/_shared/` | `prevision.ts` (consommation, moyenne pondérée, jours restants), `alertes.ts` (règles d'envoi), `reglages.ts` (valeurs par défaut). TypeScript pur, importé par l'app (`@shared/…`) **et** par les fonctions serveur. |
 | Base | `supabase/migrations/` | Tables, RLS sur toutes les tables, fonctions du back-office, paiement, stockage des photos. |
-| Fonctions Edge | `supabase/functions/*` | `lire-photo` (Claude vision), `prevision`, `alertes` (tâche horaire), `paiement`, `paiement-notif` (CinetPay), `test-notification`, `supprimer-compte`. |
+| Fonctions Edge | `supabase/functions/*` | `connexion` (numéro et mot de passe), `admin-clients` (actions de l'équipe), `prevision`, `alertes` (tâche horaire), `paiement`, `paiement-notif` (CinetPay), `test-notification`, `supprimer-compte`. |
 
 Points clés :
 - La prévision est calculée dans le navigateur pour un affichage immédiat, et sur le serveur chaque heure pour les alertes, avec le même code.
-- **Reçus et factures lus sans IA payante** : `src/lib/lecture.ts` lit le document sur le téléphone (texte d'un PDF avec pdf.js, reconnaissance de caractères sur une image avec Tesseract.js, modèle français téléchargé une fois depuis jsDelivr, ou SMS collé), puis `_shared/lecture-recu.ts` en extrait les chiffres par des règles : montant, kWh, code à 20 chiffres, date, moyen de paiement, détail des taxes (contrôle énergie + taxes = montant) ; pour une facture, période, index (contrôle nouveau − ancien = consommation), total, part fixe, date limite. Les deux bibliothèques ne se chargent qu'à la première lecture. `npm run eval:lecture` mesure la lecture sur les exemples privés de `docs/prive/recus/` (jamais versionnés). La photo du compteur reste lue par `lire-photo`.
+- **Photos, reçus et factures lus sur le téléphone** : `src/lib/lecture.ts` lit le document sur le téléphone (texte d'un PDF avec pdf.js, reconnaissance de caractères sur une image avec Tesseract.js, modèle français téléchargé une fois depuis jsDelivr, ou SMS collé), puis `_shared/lecture-recu.ts` en extrait les chiffres par des règles : montant, kWh, code à 20 chiffres, date, moyen de paiement, détail des taxes (contrôle énergie + taxes = montant) ; pour une facture, période, index (contrôle nouveau − ancien = consommation), total, part fixe, date limite. Les deux bibliothèques ne se chargent qu'à la première lecture. `npm run eval:lecture` mesure la lecture sur les exemples privés de `docs/prive/recus/` (jamais versionnés). L'écran du compteur est lu de la même façon (chiffres seulement, trois passes : photo, noir et blanc, inversée), et l'abonné confirme toujours la valeur.
 - Marge de sécurité de 20 % : on suppose 20 % de consommation en plus, l'alerte part un peu tôt.
 - Une alerte par type, par cycle de recharge et par canal : garanti par une contrainte unique en base, la ligne est réservée avant l'envoi.
 - Un paiement n'active une offre qu'après revérification du statut, du montant et de la devise auprès de CinetPay. La tâche horaire revérifie aussi les paiements restés en attente.
@@ -94,7 +94,7 @@ Tout se pilote depuis `.env.local` (modèle : `.env.example`, jamais versionné)
 2. `npm run vapid` : clés des notifications push (déjà fait si `VITE_VAPID_PUBLIC_KEY` est rempli).
 3. `npm run deploy -- db` : installe la base.
 4. `npm run deploy -- auth` : code à 6 chiffres et modèle d'email. Avec `SMTP_*` rempli, branche aussi le service d'email (indispensable avant l'ouverture : l'email intégré de Supabase n'envoie que quelques messages par heure).
-5. Renseigner les secrets disponibles (`ANTHROPIC_API_KEY`, `APP_URL`, email, CinetPay…) puis `npm run deploy -- secrets`.
+5. Renseigner les secrets disponibles (`APP_URL`, email, CinetPay…) puis `npm run deploy -- secrets`.
 6. `npm run deploy -- functions` puis `npm run deploy -- cron` (tâche horaire via pg_cron et pg_net, secret dans Vault).
 7. Netlify : mettre `NETLIFY_AUTH_TOKEN` (User settings > Applications > Personal access tokens) dans `.env.local`, puis `npm run deploy -- netlify`. Le script crée le site au premier passage, construit l'application, l'envoie, et met à jour `APP_URL`, `APP_ORIGINS` et l'authentification Supabase avec l'adresse publique. Les règles de redirection et d'en-têtes sont dans `public/_redirects` et `public/_headers`.
 8. Se connecter une fois à l'application, puis `npm run deploy -- admin ton@email` pour devenir administrateur.
@@ -109,7 +109,6 @@ Tout se pilote depuis `.env.local` (modèle : `.env.example`, jamais versionné)
 | WhatsApp | `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_TEMPLATE` | Modèle à faire valider par Meta, un paramètre `{{1}}` pour le texte de l'alerte. |
 | SMS | `SMS_PROVIDER` (`orange` ou `twilio`) et ses identifiants | Réservé aux alertes urgentes (réglable dans le back-office). |
 | Paiement | `CINETPAY_API_KEY`, `CINETPAY_SITE_ID` | Montants en multiples de 5 FCFA, contrôlé en base. |
-| Lecture photo | `ANTHROPIC_API_KEY`, `CLAUDE_MODEL` | Défaut `claude-opus-5-5` (environ 6 FCFA par photo). `claude-haiku-5-5` coûte environ 40 fois moins cher : à comparer sur les 50 photos réelles de la phase 0. |
 
 ## Comptes de test
 
@@ -126,7 +125,7 @@ Le poste de travail est derrière un proxy qui bloque les ports PostgreSQL : `np
 
 ## Données de test
 
-`npm run demo` crée 24 clients fictifs comme après deux mois de service : compteurs prépayés et postpayés, relevés (par photo ou saisis), recharges, factures, paiements (dont des refusés), alertes, réponses « As-tu été coupé ? », lectures IA, un partage et quelques entrées du journal. L'app et les quatre tableaux de bord du back-office sont ainsi remplis. Compte vitrine côté client : `aya.kouassi@demo.previenergie.test` (Famille / Pro, Maison, Boutique partagée, Bureau postpayé) ; son code de connexion est affiché par `npm run comptes:test`.
+`npm run demo` crée 24 clients fictifs comme après deux mois de service : compteurs prépayés et postpayés, relevés (par photo ou saisis), recharges, factures, paiements (dont des refusés), alertes, réponses « As-tu été coupé ? », lectures de photos, un partage et quelques entrées du journal. L'app et les quatre tableaux de bord du back-office sont ainsi remplis. Compte vitrine côté client : `aya.kouassi@demo.previenergie.test` (Famille / Pro, Maison, Boutique partagée, Bureau postpayé) ; son code de connexion est affiché par `npm run comptes:test`.
 
 Tout est repérable : comptes en `@demo.previenergie.test`, paiements `DEMO-…`, journal marqué `demo`. `npm run demo` efface d'abord la démo précédente ; `npm run demo -- vider` efface sans recréer, sans toucher aux vrais comptes. **À vider avant l'ouverture au public**, sinon les tableaux de bord mélangent vrais et faux clients.
 

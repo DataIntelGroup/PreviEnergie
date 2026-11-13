@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   findRechargeCode,
+  parseMeterText,
   groupings,
   parseAmount,
   parseBillText,
@@ -235,6 +236,17 @@ describe("SMS de la CIE (capture d'écran)", () => {
 
   it("sans la redevance de branchement, le contrôle échouerait", () => {
     expect(parseReceiptText(SMS_CIE.replace("Redevance brch: 3598.15", "")).consistent).toBe(false);
+  });
+});
+
+describe("écran du compteur", () => {
+  it("garde le nombre le plus long, avec ses décimales", () => {
+    expect(parseMeterText("8\n 126.45\n")).toBe(126.45);
+    expect(parseMeterText("0045,7")).toBe(45.7);
+    expect(parseMeterText("index 18342")).toBe(18342);
+  });
+  it("rien de lisible : rien d'inventé", () => {
+    expect(parseMeterText("..,,\n")).toBeNull();
   });
 });
 

@@ -11,7 +11,7 @@ Application de suivi de la consommation électrique CIE et d'alerte avant coupur
 | Date              | 19 octobre 2026                                                                       |
 | Version           | 1.0                                                                                   |
 | Statut            | MVP développé, mise en ligne en préparation                                           |
-| Documents liés    | Cahier des charges PréviÉnergie (18 octobre 2026), dépôt du code, README et CLAUDE.md |
+| Documents liés    | Cahier des charges PréviÉnergie (18 octobre 2026), dépôt du code et README           |
 
 ## 1. Contexte et problématique
 
@@ -71,7 +71,7 @@ Chaque besoin porte une référence et une priorité : MVP (première mise en li
 | **Réf.**  | **Besoin**                                                                                                                                 | **Priorité** |
 |-----------|--------------------------------------------------------------------------------------------------------------------------------------------|--------------|
 | **BF-04** | Ajout de compteurs : nom (Maison, Boutique…), type prépayé ou postpayé, numéro. Nombre limité selon l'offre.                               | MVP          |
-| **BF-05** | Relevé par photo de l'écran du compteur, lue automatiquement par l'IA, avec confirmation ou correction. Saisie manuelle toujours possible. | MVP          |
+| **BF-05** | Relevé par photo de l'écran du compteur, lue automatiquement, avec confirmation ou correction. Saisie manuelle toujours possible. | MVP          |
 | **BF-06** | Contrôles de cohérence : solde en hausse sans recharge, chute anormale, index postpayé en baisse.                                          | MVP          |
 | **BF-07** | Enregistrement des recharges par photo du reçu ou du SMS, ou saisie : kWh, montant, code, moyen de paiement, date.                         | MVP          |
 | **BF-08** | Transfert du SMS de recharge au numéro WhatsApp de PréviÉnergie pour lecture automatique.                                                  | V1           |
@@ -114,7 +114,7 @@ Chaque besoin porte une référence et une priorité : MVP (première mise en li
 |-----------|-----------------------------------------------------------------------------------------------------------------------------------|--------------|
 | **BF-26** | Tableau des inscriptions : total, nouveaux, comptes actifs, répartition par commune, source, offre et type de compteur.           | MVP          |
 | **BF-27** | Tableau financier : revenu mensuel récurrent, encaissements, abonnés payants, conversion, moyens de paiement, derniers paiements. | MVP          |
-| **BF-28** | Tableau des coûts et de la marge : coûts WhatsApp, SMS, email et lecture IA, coût par utilisateur actif, marge par offre.         | MVP          |
+| **BF-28** | Tableau des coûts et de la marge : coûts WhatsApp, SMS, email et lecture des photos, coût par utilisateur actif, marge par offre.         | MVP          |
 | **BF-29** | Tableau d'activité : relevés, taux de lecture des photos, rétention, alertes par canal et par type, coupures évitées.             | MVP          |
 | **BF-30** | Gestion des utilisateurs : recherche par nom, prénom, téléphone ou email ; changement d'offre, de rôle, suspension.               | MVP          |
 | **BF-31** | Réglages sans redéploiement : seuils, heures d'envoi, marge de sécurité, coûts unitaires, prix des offres, modèles de messages.   | MVP          |
@@ -141,14 +141,14 @@ Chaque besoin porte une référence et une priorité : MVP (première mise en li
 | Application                | React, Vite, TypeScript, Tailwind CSS, PWA avec service worker                          |
 | Base de données et comptes | Supabase : Postgres, authentification par email, stockage des photos, fonctions serveur |
 | Projet Supabase            | doxnpachkxjxxmirybwy (plan gratuit, compte dédié)                                       |
-| Lecture des photos         | API Claude avec vision, réponse structurée                                              |
+| Lecture des photos         | Reconnaissance de caractères sur le téléphone (Tesseract.js, pdf.js)                    |
 | Notifications push         | Web Push (clés VAPID)                                                                   |
 | WhatsApp                   | API WhatsApp Business de Meta, modèles validés                                          |
 | SMS                        | Orange SMS API ou Twilio                                                                |
 | Email                      | Resend ou Brevo                                                                         |
 | Paiement                   | CinetPay (mobile money)                                                                 |
-| Hébergement                | Netlify pour l'application, Supabase pour le serveur                                    |
-| Développement              | Poursuivi avec Claude Code, sur le poste local (dossier Documents\Index)                |
+| Hébergement                | Vercel pour l'application, Supabase pour le serveur                                     |
+| Développement              | Sur le poste local (dossier Documents\Index)                                            |
 
 ## 7. Contraintes
 
@@ -187,7 +187,7 @@ Revenus complémentaires prévus en V2 : commission sur les recharges payées de
 | Fonctions serveur (lecture photo, prévision, alertes, paiement, suppression de compte)                                       | Fait, vérifiées            |
 | Moteur de prévision et règles d'alerte                                                                                       | Fait, 40 tests validés     |
 | Démo en ligne (données fictives)                                                                                             | Fait                       |
-| Projet copié sur le poste local pour Claude Code                                                                             | Fait                       |
+| Projet copié sur le poste local                                                                                              | Fait                       |
 | Installation de la base dans le projet Supabase                                                                              | À faire                    |
 | Modèle d'email avec code à 6 chiffres et service SMTP                                                                        | À faire                    |
 | Déploiement des fonctions serveur, secrets, tâches planifiées                                                                | À faire                    |
@@ -246,7 +246,7 @@ Revenus complémentaires prévus en V2 : commission sur les recharges payées de
 
 - Hébergement de départ sur le plan gratuit, dans un compte Supabase dédié, sans toucher à Beautika ni à Klyo.
 
-- Suite du développement avec Claude Code sur le poste local.
+- Suite du développement sur le poste local.
 
 ### Points à trancher
 

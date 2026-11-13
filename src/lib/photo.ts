@@ -1,5 +1,5 @@
 // Compression des photos avant envoi : moins de 500 Ko (exigence de
-// performance), assez nettes pour que l'IA lise les chiffres.
+// performance), assez nettes pour relire les chiffres.
 const MAX_BYTES = 500 * 1024;
 const MAX_SIDE = 1600;
 

@@ -243,7 +243,7 @@ export default function Dashboards({ view }: { view: "signups" | "finance" | "co
             <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
               <Tile label={`Coûts totaux (${days} j)`} value={fcfa(c.total)} />
               <Tile label="Coût par utilisateur actif" value={fcfa(c.perActiveUser)} />
-              <Tile label="Lecture IA" value={fcfa(c.ai.cost)} sub={`${num(c.ai.count, 0)} photos lues`} />
+              <Tile label="Lecture photo" value={fcfa(c.ai.cost)} sub={`${num(c.ai.count, 0)} photos lues`} />
               <Tile label="Messages" value={fcfa(c.total - c.ai.cost)} sub="WhatsApp, SMS, email" />
             </div>
             <Breakdown title="Coût par canal" items={c.byChannel} label={(l) => CHANNEL_LABELS[l as Channel] ?? l}
@@ -267,7 +267,7 @@ export default function Dashboards({ view }: { view: "signups" | "finance" | "co
                   </tbody>
                 </table>
               </div>
-              <p className="mt-3 text-xs text-stone-500">Les coûts unitaires se règlent dans Réglages. L'offre gratuite n'utilise que des canaux gratuits, sa marge négative vient de la lecture IA.</p>
+              <p className="mt-3 text-xs text-stone-500">Les coûts unitaires se règlent dans Réglages. L'offre gratuite n'utilise que des canaux gratuits.</p>
             </Card>
           </>
         )}

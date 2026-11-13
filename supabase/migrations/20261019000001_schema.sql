@@ -267,7 +267,7 @@ create table public.cutoff_feedback (
   unique (meter_id, cycle_key)
 );
 
--- ---------------------------------------------------------------- lectures IA (coûts, taux de réussite)
+-- ---------------------------------------------------------------- lectures de photos (coûts, taux de réussite)
 create table public.ai_reads (
   id          bigint generated always as identity primary key,
   user_id     uuid references public.profiles (id) on delete set null,

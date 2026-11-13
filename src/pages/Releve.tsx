@@ -1,26 +1,19 @@
-// Relevé du compteur : photo lue par l'IA puis confirmée, ou saisie
-// manuelle (BF-05), avec contrôles de cohérence (BF-06).
+// Relevé du compteur : photo de l'écran lue sur le téléphone puis confirmée,
+// ou saisie manuelle (BF-05), avec contrôles de cohérence (BF-06).
 import { checkReading, type CheckResult } from "@shared/prevision.ts";
-import { type FormEvent, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import { Link, Navigate, useNavigate, useSearchParams } from "react-router-dom";
 import { AccessBanner } from "@/components/AccessBanner";
 import { MeterPicker } from "@/components/MeterPicker";
-import { PhotoCapture, type ReadResponse } from "@/components/PhotoCapture";
+import { Icon } from "@/components/icons";
 import { Button, Card, Field, Input, Notice, PageTitle, useToast } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { toEngine, useData } from "@/lib/data";
 import { fmtAgo, fromLocalInput, kwh, toLocalInput } from "@/lib/format";
-import type { CompressedPhoto } from "@/lib/photo";
+import { readMeter } from "@/lib/lecture";
+import { compressPhoto, type CompressedPhoto } from "@/lib/photo";
 import { errorMessage, supabase } from "@/lib/supabase";
 import { R, withQuery } from "@/lib/routes";
-
-interface MeterRead {
-  lisible: boolean;
-  valeur: number | null;
-  nature: string;
-  confiance: number;
-  remarque: string;
-}
 
 const TIPS = [
   "Attends que l'écran affiche le crédit restant en kWh (fais défiler l'affichage si besoin).",
@@ -82,19 +75,17 @@ export default function Releve() {
     );
   }
 
-  function onRead(p: CompressedPhoto, read: ReadResponse<MeterRead>) {
+  function onRead(p: CompressedPhoto, read: { value: number | null; confidence: number | null }) {
     setPhoto(p);
     setMode("confirm");
     setTakenAt(toLocalInput(new Date()));
-    const r = read.result;
-    if (r && r.lisible && typeof r.valeur === "number") {
-      setValue(String(r.valeur).replace(".", ","));
-      setAi({ value: r.valeur, confidence: read.confidence ?? r.confiance });
-      setAiNote((read.confidence ?? r.confiance) < 0.7 ? "Lecture incertaine : vérifie bien le chiffre." : null);
+    setAi(read);
+    if (read.value !== null) {
+      setValue(String(read.value).replace(".", ","));
+      setAiNote((read.confidence ?? 0) < 0.7 ? "Lecture incertaine : vérifie bien chaque chiffre." : null);
     } else {
       setValue("");
-      setAi({ value: null, confidence: null });
-      setAiNote(r?.remarque || read.message || "Je n'ai pas réussi à lire l'écran. Saisis la valeur affichée.");
+      setAiNote("Je n'ai pas réussi à lire l'écran. Saisis la valeur affichée.");
     }
   }
 
@@ -163,7 +154,7 @@ export default function Releve() {
 
       {mode === "photo" ? (
         <Card className="space-y-4">
-          <PhotoCapture<MeterRead> kind="compteur" meterKind={meter.kind} label="Photographier l'écran" tips={TIPS} onRead={onRead} />
+          <MeterPhoto onRead={onRead} />
           <Button variant="secondary" className="w-full" onClick={() => { setMode("confirm"); setPhoto(null); setAi(null); setAiNote(null); }}>
             Saisir à la main
           </Button>
@@ -225,6 +216,54 @@ export default function Releve() {
           </Button>
         </form>
       )}
+    </div>
+  );
+}
+
+/** Photo de l'écran : lecture sur le téléphone, photo compressée gardée pour l'historique. */
+function MeterPhoto({ onRead }: { onRead: (p: CompressedPhoto, read: { value: number | null; confidence: number | null }) => void }) {
+  const input = useRef<HTMLInputElement>(null);
+  const [progress, setProgress] = useState<number | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  async function handle(file: File | undefined) {
+    if (!file) return;
+    setError(null);
+    setProgress(0);
+    try {
+      // La lecture se fait sur l'image en pleine résolution, le stockage sur la version compressée.
+      const [read, photo] = await Promise.all([readMeter(file, setProgress).catch(() => ({ value: null, confidence: null })), compressPhoto(file)]);
+      onRead(photo, read);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Photo inutilisable");
+    } finally {
+      setProgress(null);
+      if (input.current) input.current.value = "";
+    }
+  }
+
+  if (progress !== null) {
+    return (
+      <div className="space-y-3 rounded-2xl bg-white p-6 text-center" role="status">
+        <p className="font-semibold text-brand-700">Lecture de l'écran…</p>
+        <div className="h-2.5 overflow-hidden rounded-full bg-brand-100">
+          <div className="h-full rounded-full bg-brand-600 transition-all" style={{ width: `${Math.max(8, progress * 100)}%` }} />
+        </div>
+        <p className="text-xs text-stone-500">La lecture se fait sur ton téléphone : la photo n'est envoyée nulle part pour être lue.</p>
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-3">
+      <input ref={input} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => void handle(e.target.files?.[0])} />
+      <Button className="w-full" onClick={() => input.current?.click()}>
+        <Icon name="camera" className="h-5 w-5" /> Photographier l'écran
+      </Button>
+      <ul className="space-y-1 text-sm text-stone-500">
+        {TIPS.map((t) => <li key={t}>• {t}</li>)}
+      </ul>
+      {error && <Notice tone="error">{error}</Notice>}
     </div>
   );
 }

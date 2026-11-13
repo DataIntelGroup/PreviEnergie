@@ -1,7 +1,7 @@
 // Lecture des chiffres d'un reçu de recharge prépayée (Wave, Orange Money,
 // MTN MoMo, Moov Money, agence CIE) ou d'une facture postpayée CIE, à partir
 // du texte reconnu sur la photo, extrait du PDF ou collé depuis un SMS.
-// Aucune IA ici : des règles sur des intitulés stables, et des contrôles
+// Pas de service extérieur : des règles sur des intitulés stables, et des contrôles
 // arithmétiques pour savoir si la lecture est fiable.
 
 export type ReceiptSource = "wave" | "orange_money" | "mtn_momo" | "moov_money" | "cie" | "inconnu";
@@ -350,4 +350,20 @@ export function parseBillText(text: string): BillRead {
   };
   read.found = [read.periodStart, read.kwh, read.amountFcfa, read.indexEnd].filter((v) => v !== null).length;
   return read;
+}
+
+// ---------------------------------------------------------------- écran du compteur
+
+/**
+ * Valeur affichée par l'écran du compteur (crédit en kWh ou index), à partir
+ * du texte reconnu avec seulement des chiffres autorisés : le nombre le plus
+ * long, les décimales séparées par un point ou une virgule.
+ */
+export function parseMeterText(text: string): number | null {
+  const tokens = [...text.matchAll(/\d+(?:[.,]\d{1,3})?/g)].map((m) => m[0]);
+  let best: string | null = null;
+  for (const t of tokens) if (!best || t.replace(/\D/g, "").length > best.replace(/\D/g, "").length) best = t;
+  if (!best) return null;
+  const n = Number(best.replace(",", "."));
+  return Number.isFinite(n) ? n : null;
 }

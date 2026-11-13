@@ -310,7 +310,7 @@ async function auth() {
 
 // ---------------------------------------------------------------- secrets
 const SECRET_NAMES = [
-  "ANTHROPIC_API_KEY", "CLAUDE_MODEL", "VAPID_PRIVATE_KEY", "VAPID_SUBJECT", "CRON_SECRET", "APP_URL", "APP_ORIGINS",
+  "VAPID_PRIVATE_KEY", "VAPID_SUBJECT", "CRON_SECRET", "APP_URL", "APP_ORIGINS",
   "EMAIL_PROVIDER", "EMAIL_API_KEY", "EMAIL_FROM",
   "WHATSAPP_TOKEN", "WHATSAPP_PHONE_NUMBER_ID", "WHATSAPP_TEMPLATE", "WHATSAPP_TEMPLATE_LANG", "WHATSAPP_API_VERSION",
   "SMS_PROVIDER", "ORANGE_CLIENT_ID", "ORANGE_CLIENT_SECRET", "ORANGE_SENDER", "ORANGE_SENDER_NAME",
@@ -335,7 +335,7 @@ async function secrets() {
   if (process.env.VITE_VAPID_PUBLIC_KEY) list.push({ name: "VAPID_PUBLIC_KEY", value: process.env.VITE_VAPID_PUBLIC_KEY });
   await management("POST", `/projects/${REF}/secrets`, list);
   console.log(`${list.length} secret(s) envoyés : ${list.map((s) => s.name).join(", ")}`);
-  const missing = ["ANTHROPIC_API_KEY", "APP_URL", "EMAIL_API_KEY", "CINETPAY_API_KEY"].filter((n) => !process.env[n]);
+  const missing = ["APP_URL", "EMAIL_API_KEY", "CINETPAY_API_KEY"].filter((n) => !process.env[n]);
   if (missing.length) console.log(`  Encore absents : ${missing.join(", ")}.`);
 }
 

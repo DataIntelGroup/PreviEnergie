@@ -203,7 +203,7 @@ export default function Reglages() {
         onReset={() => reset("unitCosts")} onSave={() => save("unitCosts", (v) => (Object.values(v).every((n) => Number.isFinite(n) && n >= 0) ? null : "Coûts positifs."))}>
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
           {(["whatsapp", "sms", "email", "push", "aiRead"] as const).map((k) => (
-            <Field key={k} label={k === "aiRead" ? "Lecture IA" : CHANNEL_LABELS[k]}>
+            <Field key={k} label={k === "aiRead" ? "Lecture photo" : CHANNEL_LABELS[k]}>
               {numberInput(s.unitCosts[k], (n) => patch("unitCosts", { ...s.unitCosts, [k]: n }), { step: 0.5, disabled: ro })}
             </Field>
           ))}

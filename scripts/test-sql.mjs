@@ -197,7 +197,7 @@ async function main() {
     rejects(() => user(A, (q) => q("insert into payments (user_id, plan_code, amount_fcfa, transaction_id) values ($1, 'essentiel', 1000, 'x')", [A])), /42501|permission/));
   await check("l'utilisateur n'écrit pas d'alerte", () =>
     rejects(() => user(A, (q) => q("insert into alerts (user_id, meter_id, type, channel, cycle_key, status) values ($1, $2, 'veille', 'sms', 'x', 'sent')", [A, meterA])), /42501|permission/));
-  await check("l'utilisateur ne lit pas les lectures IA", () =>
+  await check("l'utilisateur ne lit pas les lectures de photos", () =>
     rejects(() => user(A, (q) => q("select * from ai_reads")), /42501|permission/));
   await check("l'utilisateur n'écrit pas les réglages", () =>
     rejects(() => user(A, (q) => q("insert into settings (key, value) values ('thresholds', '{}')")), /42501|permission/));

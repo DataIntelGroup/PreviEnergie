@@ -2,7 +2,7 @@
 // PDF (pdf.js), reconnaissance de caractères sur une image (Tesseract), ou
 // SMS collé. Rien n'est envoyé à un serveur pour lire : c'est gratuit et la
 // photo reste sur l'appareil. Les bibliothèques ne se chargent qu'au besoin.
-import { type BillRead, parseBillText, parseReceiptText, type ReceiptRead } from "@shared/lecture-recu.ts";
+import { type BillRead, parseBillText, parseMeterText, parseReceiptText, type ReceiptRead } from "@shared/lecture-recu.ts";
 import type { Worker } from "tesseract.js";
 
 export type ReadMethod = "pdf" | "image" | "texte";
@@ -95,6 +95,72 @@ export async function readImage(file: Blob, onProgress?: (p: number) => void): P
   } finally {
     progressCb = null;
   }
+}
+
+/** Noir et blanc par le seuil d'Otsu, éventuellement inversé (chiffres clairs sur fond sombre). */
+function binarize(src: HTMLCanvasElement, invert: boolean): HTMLCanvasElement {
+  const out = document.createElement("canvas");
+  out.width = src.width;
+  out.height = src.height;
+  const ctx = out.getContext("2d", { willReadFrequently: true })!;
+  ctx.drawImage(src, 0, 0);
+  const data = ctx.getImageData(0, 0, out.width, out.height);
+  const px = data.data;
+  const hist = new Array<number>(256).fill(0);
+  for (let i = 0; i < px.length; i += 4) hist[px[i]]++;
+  const total = px.length / 4;
+  let sum = 0;
+  for (let t = 0; t < 256; t++) sum += t * hist[t];
+  let sumB = 0;
+  let wB = 0;
+  let best = 0;
+  let threshold = 128;
+  for (let t = 0; t < 256; t++) {
+    wB += hist[t];
+    if (!wB || wB === total) continue;
+    sumB += t * hist[t];
+    const mB = sumB / wB;
+    const mF = (sum - sumB) / (total - wB);
+    const between = wB * (total - wB) * (mB - mF) ** 2;
+    if (between > best) {
+      best = between;
+      threshold = t;
+    }
+  }
+  for (let i = 0; i < px.length; i += 4) {
+    const dark = px[i] <= threshold;
+    px[i] = px[i + 1] = px[i + 2] = dark !== invert ? 0 : 255;
+  }
+  ctx.putImageData(data, 0, 0);
+  return out;
+}
+
+/**
+ * Valeur affichée par l'écran du compteur, lue sur le téléphone : chiffres
+ * seulement, trois passes (photo, noir et blanc, inversée), on garde le
+ * nombre le plus long. La lecture est toujours confirmée par l'abonné.
+ */
+export async function readMeter(file: Blob, onProgress?: (p: number) => void): Promise<{ value: number | null; confidence: number | null }> {
+  const w = await getWorker();
+  const canvas = await prepare(file);
+  const variants = [canvas, binarize(canvas, false), binarize(canvas, true)];
+  let best: { value: number; digits: number; confidence: number } | null = null;
+  await w.setParameters({ tessedit_char_whitelist: "0123456789.,", tessedit_pageseg_mode: "6" as never });
+  try {
+    for (const [i, v] of variants.entries()) {
+      progressCb = (p) => onProgress?.((i + p) / variants.length);
+      const { data } = await w.recognize(v);
+      const value = parseMeterText(data.text);
+      if (value === null) continue;
+      const digits = String(value).replace(/\D/g, "").length;
+      if (!best || digits > best.digits || (digits === best.digits && data.confidence > best.confidence)) best = { value, digits, confidence: data.confidence };
+    }
+  } finally {
+    progressCb = null;
+    // Le lecteur sert aussi aux reçus : on remet les réglages par défaut.
+    await w.setParameters({ tessedit_char_whitelist: "", tessedit_pageseg_mode: "3" as never });
+  }
+  return best ? { value: best.value, confidence: Math.round(best.confidence) / 100 } : { value: null, confidence: null };
 }
 
 export async function readPdf(file: Blob): Promise<LocalRead> {

@@ -1,5 +1,5 @@
 // En-tête et héros de la page publique, d'après la maquette validée :
-// texte à gauche, téléphone lumineux à droite entouré de notifications.
+// texte à gauche, carte de prévision à droite, entourée de notifications.
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { Gauge } from "@/components/Gauge";
@@ -130,62 +130,40 @@ function Spark({ className = "" }: { className?: string }) {
   );
 }
 
-function Phone() {
+/** Aperçu de l'app : la carte de prévision, posée seule et légèrement inclinée. */
+function ForecastCard() {
   return (
-    <div className="relative w-[17.5rem] sm:w-[19.5rem]">
-      {/* Cadre */}
-      <div className="relative rounded-[3rem] bg-stone-900 p-[10px] shadow-[0_40px_80px_-20px_rgba(124,45,18,0.45)] ring-1 ring-stone-700">
-        <div className="relative overflow-hidden rounded-[2.4rem] bg-[#fbf7f3]">
-          {/* Barre d'état */}
-          <div className="flex items-center justify-between px-6 pt-3 text-[11px] font-semibold text-stone-800">
-            <span>9:41</span>
-            <span className="absolute left-1/2 top-2.5 h-6 w-24 -translate-x-1/2 rounded-full bg-stone-900" aria-hidden />
-            <span className="flex items-center gap-1" aria-hidden>
-              <svg viewBox="0 0 18 12" className="h-2.5 w-4" fill="currentColor"><rect x="0" y="8" width="3" height="4" rx="1" /><rect x="5" y="5" width="3" height="7" rx="1" /><rect x="10" y="2" width="3" height="10" rx="1" /><rect x="15" y="0" width="3" height="12" rx="1" /></svg>
-              <svg viewBox="0 0 26 12" className="h-2.5 w-5"><rect x="0.5" y="0.5" width="22" height="11" rx="3" fill="none" stroke="currentColor" /><rect x="2" y="2" width="16" height="8" rx="2" fill="currentColor" /><rect x="23.5" y="4" width="2" height="4" rx="1" fill="currentColor" /></svg>
-            </span>
+    <div className="relative w-[19rem] rotate-[-2deg] sm:w-[22rem]">
+      <div className="rounded-[2rem] bg-white/90 p-4 shadow-[0_40px_80px_-24px_rgba(124,45,18,0.45)] ring-1 ring-white backdrop-blur">
+        <div className="bg-hero rounded-[1.6rem] p-5 text-white shadow-lg shadow-brand-700/30">
+          <div className="flex items-center justify-between text-sm">
+            <span className="font-semibold">Maison</span>
+            <span className="rounded-full bg-white/20 px-2.5 py-1 text-[11px] font-medium">Pense à recharger</span>
           </div>
-          <div className="px-4 pt-6 pb-3">
-            {/* Carte orange */}
-            <div className="bg-hero rounded-[1.6rem] p-4 text-white shadow-lg shadow-brand-700/30">
-              <div className="flex items-center justify-between text-xs">
-                <span className="font-semibold">Maison</span>
-                <span className="rounded-full bg-white/20 px-2.5 py-1 text-[10px] font-medium">Pense à recharger</span>
-              </div>
-              <div className="mt-2">
-                <Gauge days={4.2} level="amber" label="Exemple : 4 jours restants" onColor size="sm" max={9} />
-              </div>
-              <p className="mt-2 text-center text-[11px] text-white/80">Coupure probable</p>
-              <p className="text-center text-sm font-bold">vendredi vers 20 h</p>
-            </div>
-            <div className="mt-3 grid grid-cols-2 gap-2.5">
-              {[
-                ["Moyenne", "5,0 kWh/j"],
-                ["Coût / jour", "550 FCFA"],
-              ].map(([l, v]) => (
-                <div key={l} className="rounded-2xl bg-white p-3 shadow-sm ring-1 ring-stone-200/70">
-                  <p className="text-[10px] text-stone-500">{l}</p>
-                  <p className="text-sm font-extrabold">{v}</p>
-                </div>
-              ))}
-            </div>
-            <div className="mt-3 rounded-2xl bg-brand-600 py-3 text-center text-sm font-bold text-white shadow-md shadow-brand-600/30">Relever</div>
+          <div className="mt-2">
+            <Gauge days={4.2} level="amber" label="Exemple : 4 jours restants" onColor size="sm" max={9} />
           </div>
-          {/* Onglets */}
-          <div className="grid grid-cols-4 border-t border-stone-200 bg-white px-2 pt-2 pb-4 text-[9px] font-medium text-stone-500">
-            {[
-              ["home", "Accueil"],
-              ["history", "Historique"],
-              ["bell", "Notifications"],
-              ["user", "Profil"],
-            ].map(([icon, label], i) => (
-              <span key={label} className={`flex flex-col items-center gap-0.5 ${i === 0 ? "text-brand-600" : ""}`}>
-                <Icon name={icon as "home"} className="h-4 w-4" />
-                {label}
-              </span>
-            ))}
-          </div>
+          <p className="mt-2 text-center text-xs text-white/80">Coupure probable</p>
+          <p className="text-center font-bold">vendredi vers 20 h</p>
         </div>
+        <div className="mt-3 grid grid-cols-3 gap-2.5">
+          {[
+            ["Moyenne", "5,0 kWh/j"],
+            ["Coût / jour", "550 F"],
+            ["Crédit", "21 kWh"],
+          ].map(([l, v]) => (
+            <div key={l} className="rounded-2xl bg-[#fbf7f3] p-3 ring-1 ring-stone-200/70">
+              <p className="text-[11px] text-stone-500">{l}</p>
+              <p className="text-sm font-extrabold">{v}</p>
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex items-end gap-1.5 rounded-2xl bg-[#fbf7f3] px-3 pt-3 pb-2 ring-1 ring-stone-200/70" aria-hidden>
+          {[52, 64, 48, 70, 58, 76, 60, 44, 66, 72, 54, 62, 80, 68].map((h, i) => (
+            <span key={i} className={`flex-1 rounded-t-md ${i === 13 ? "bg-brand-600" : "bg-brand-300/70"}`} style={{ height: `${h * 0.55}px` }} />
+          ))}
+        </div>
+        <p className="mt-1.5 text-center text-[11px] text-stone-500">Consommation des 14 derniers jours</p>
       </div>
     </div>
   );
@@ -194,7 +172,7 @@ function Phone() {
 export function Hero({ onHowItWorks }: { onHowItWorks: () => void }) {
   return (
     <section className="relative overflow-hidden">
-      {/* Fond : halo pêche derrière le téléphone */}
+      {/* Fond : halo pêche derrière la carte */}
       <div className="pointer-events-none absolute -top-40 right-[-10%] h-[44rem] w-[44rem] rounded-full bg-[radial-gradient(circle,rgba(251,146,60,0.35),rgba(253,186,116,0.15)_45%,transparent_70%)]" aria-hidden />
       <div className="relative mx-auto grid max-w-7xl items-center gap-16 px-5 pt-10 pb-20 lg:grid-cols-[1.15fr_0.85fr] lg:pt-16 lg:pb-28">
         {/* Texte */}
@@ -239,7 +217,7 @@ export function Hero({ onHowItWorks }: { onHowItWorks: () => void }) {
 
         {/* Visuel */}
         <div className="animate-fade-up relative mx-auto flex justify-center lg:justify-self-center" style={{ animationDelay: "120ms" }}>
-          {/* Halo et anneau lumineux autour du téléphone */}
+          {/* Halo et anneau lumineux autour de la carte */}
           <div className="pointer-events-none absolute top-1/2 left-1/2 h-[34rem] w-[34rem] -translate-x-1/2 -translate-y-1/2 rounded-full bg-[radial-gradient(circle,rgba(249,115,22,0.35),transparent_62%)] blur-2xl" aria-hidden />
           <svg viewBox="0 0 600 600" className="pointer-events-none absolute top-1/2 left-1/2 h-[36rem] w-[36rem] -translate-x-1/2 -translate-y-1/2" aria-hidden>
             <defs>
@@ -260,7 +238,7 @@ export function Hero({ onHowItWorks }: { onHowItWorks: () => void }) {
           </svg>
 
           <div className="relative">
-            <Phone />
+            <ForecastCard />
 
             {/* Notification d'alerte */}
             <div className="animate-float absolute -top-10 -left-28 hidden w-64 rounded-2xl bg-white p-3.5 shadow-2xl shadow-stone-900/10 ring-1 ring-stone-200/70 sm:block">
@@ -293,7 +271,7 @@ export function Hero({ onHowItWorks }: { onHowItWorks: () => void }) {
             </span>
 
             {/* Annotation manuscrite */}
-            <div className="absolute -top-12 -right-40 hidden rotate-[-10deg] text-brand-600 xl:block" style={{ fontFamily: "Caveat, cursive" }}>
+            <div className="absolute -top-16 -right-12 hidden rotate-[-10deg] text-brand-600 xl:block" style={{ fontFamily: "Caveat, cursive" }}>
               <Spark className="absolute -top-6 -left-8 h-8 w-8 rotate-12 text-brand-500" />
               <p className="text-[2rem] leading-[0.95] font-bold">Ton énergie,<br />&nbsp;&nbsp;sous contrôle !</p>
               <svg viewBox="0 0 160 30" className="mt-1 ml-6 h-6 w-36" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" aria-hidden>

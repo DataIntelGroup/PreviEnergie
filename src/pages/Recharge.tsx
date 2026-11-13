@@ -1,5 +1,5 @@
 // Recharge prépayée : reçu (photo, capture, PDF) ou SMS lu sur le téléphone,
-// sans IA payante, ou saisie à la main (BF-07).
+// sans service extérieur, ou saisie à la main (BF-07).
 import type { ReceiptRead } from "@shared/lecture-recu.ts";
 import { currentCycleKey } from "@shared/prevision.ts";
 import { PAYMENT_LABELS, PAYMENT_METHODS, type PaymentMethod } from "@shared/validation.ts";
