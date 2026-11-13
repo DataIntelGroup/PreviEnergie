@@ -16,9 +16,22 @@ createRoot(document.getElementById("root")!).render(
 // Pages où l'on quitte l'app en pleine saisie (appareil photo, choix d'un fichier, SMS).
 const SAISIES: string[] = [R.releve, R.recharge, R.compteurs, R.connexion];
 
+// Tant que la personne n'a rien touché, recharger ne lui fait rien perdre.
+let touched = false;
+for (const type of ["pointerdown", "keydown", "input", "change"]) {
+  window.addEventListener(type, () => { touched = true; }, { capture: true, once: true });
+}
+
 if ("serviceWorker" in navigator && import.meta.env.PROD) {
   const update = registerSW({
     onNeedRefresh() {
+      // Nouvelle version trouvée à l'ouverture, avant tout geste : on la
+      // prend tout de suite. Sinon, sans cette règle, rouvrir l'onglet ou
+      // appuyer sur F5 laisse l'ancienne version indéfiniment.
+      if (!touched) {
+        void update(true);
+        return;
+      }
       // Jamais pendant une saisie : on quitte souvent l'app au milieu d'un
       // formulaire (copier le code de recharge, lire le code de connexion).
       const apply = () => {
