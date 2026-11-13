@@ -92,6 +92,10 @@ export interface PaymentRow {
   method: string | null;
   period_end: string | null;
   created_at: string;
+  /** Paiement manuel : identifiant de transaction déclaré par le client. */
+  reference: string | null;
+  declared_amount: number | null;
+  refusal_reason: string | null;
 }
 
 /** Partage d'un compteur (BF-15). */

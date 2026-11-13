@@ -34,3 +34,7 @@ verify_jwt = false
 # Création de compte par numéro et mot de passe : appelée avant d'être connecté.
 [functions.inscription]
 verify_jwt = false
+
+# Mot de passe oublié (demande et changement avec le code) : appelée avant d'être connecté.
+[functions.mot-de-passe]
+verify_jwt = false

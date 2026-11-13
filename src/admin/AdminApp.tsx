@@ -5,7 +5,8 @@ import { Link, NavLink, Navigate, Route, Routes } from "react-router-dom";
 import { Logo } from "@/components/Layout";
 import { ToastProvider } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
-import { supabase } from "@/lib/supabase";
+import { callFunction, supabase } from "@/lib/supabase";
+import ATraiter, { type Demandes } from "./ATraiter";
 import Dashboards, { type Dashboard } from "./Dashboards";
 import Journal from "./Journal";
 import Reglages from "./Reglages";
@@ -31,6 +32,7 @@ export const useAdmin = () => {
 };
 
 const NAV = [
+  { to: "/admin/a-traiter", label: "À traiter" },
   { to: "/admin/inscriptions", label: "Inscriptions" },
   { to: "/admin/finances", label: "Finances" },
   { to: "/admin/couts", label: "Coûts et marge" },
@@ -48,6 +50,16 @@ export default function AdminApp() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [tick, setTick] = useState(0);
+  const [todo, setTodo] = useState(0);
+  const isAdmin = profile?.role === "admin";
+
+  // Nombre de demandes en attente, affiché à côté de « À traiter ».
+  useEffect(() => {
+    if (!isAdmin) return;
+    callFunction<Demandes>("admin-demandes", { action: "liste" })
+      .then((d) => setTodo(d.pending.length + d.resets.filter((r) => r.status === "requested").length))
+      .catch(() => undefined);
+  }, [isAdmin, tick]);
 
   useEffect(() => {
     let active = true;
@@ -72,7 +84,7 @@ export default function AdminApp() {
     return () => clearInterval(t);
   }, []);
 
-  const value: AdminState = { days, setDays, data, loading, error, reload: () => setTick((x) => x + 1), isAdmin: profile?.role === "admin" };
+  const value: AdminState = { days, setDays, data, loading, error, reload: () => setTick((x) => x + 1), isAdmin };
 
   return (
     <AdminContext.Provider value={value}>
@@ -96,6 +108,9 @@ export default function AdminApp() {
                   }
                 >
                   {n.label}
+                  {n.to === "/admin/a-traiter" && todo > 0 && (
+                    <span className="ml-2 rounded-full bg-red-600 px-1.5 py-0.5 text-xs font-bold text-white">{todo}</span>
+                  )}
                 </NavLink>
               ))}
             </nav>
@@ -106,6 +121,7 @@ export default function AdminApp() {
           <main className="min-w-0 flex-1 p-4 lg:p-8">
             <Routes>
               <Route index element={<Navigate to="inscriptions" replace />} />
+              <Route path="a-traiter" element={<ATraiter />} />
               <Route path="inscriptions" element={<Dashboards view="signups" />} />
               <Route path="finances" element={<Dashboards view="finance" />} />
               <Route path="couts" element={<Dashboards view="costs" />} />

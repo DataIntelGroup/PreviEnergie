@@ -327,6 +327,33 @@ async function main() {
     const { rows } = await db.query("select plan_code from profiles where id = $1", [B]);
     assert(rows[0].plan_code === "essentiel");
   });
+  await check("paiement manuel : une même transaction ne sert qu'une fois, sauf après refus", async () => {
+    const ins = (tx, ref) => service((q) => q(
+      "insert into payments (user_id, plan_code, amount_fcfa, transaction_id, method, reference, payer_phone, declared_amount) values ($1, 'essentiel', 1500, $2, 'wave', $3, '0700000003', 1500)",
+      [B, tx, ref]));
+    await ins("PM-1", "ABC12345");
+    await rejects(() => ins("PM-2", "abc12345"), /payments_reference_unique|duplicate/);
+    await service((q) => q("select apply_payment('PM-1', 'refused', 'wave', '{}')"));
+    await ins("PM-3", "ABC12345");
+    await rejects(() => ins("PM-4", "x"), /23514|check/);
+  });
+  await check("paiement manuel : le client ne voit que ses déclarations", async () => {
+    const { rows } = await user(A, (q) => q("select * from payments where reference is not null"));
+    assert(rows.length === 0, "A voit les paiements de B");
+  });
+  await check("les demandes de mot de passe sont invisibles, même de l'admin", async () => {
+    await db.query("insert into password_resets (user_id) values ($1)", [A]);
+    await rejects(() => user(A, (q) => q("select * from password_resets")), /42501|permission/);
+    await rejects(() => user(ADMIN, (q) => q("select * from password_resets")), /42501|permission/);
+    await rejects(() => anon((q) => q("insert into password_resets (user_id) values ($1)", [A])), /42501|permission/);
+  });
+  await check("numéros de paiement : contrôlés, lisibles par les abonnés", async () => {
+    await user(ADMIN, (q) => q(`select admin_set_setting('manualPayment', '{"numbers": {"wave": "0700000010", "orange_money": ""}, "holder": "DIG", "delayMinutes": 30}')`));
+    const { rows } = await user(A, (q) => q("select value from settings where key = 'manualPayment'"));
+    assert(rows[0].value.numbers.wave === "0700000010");
+    await rejects(() => user(ADMIN, (q) => q(`select admin_set_setting('manualPayment', '{"numbers": {"wave": "12345"}}')`)), /invalide/);
+    await rejects(() => user(SUPPORT, (q) => q(`select admin_set_setting('manualPayment', '{"numbers": {}}')`)), /42501|admin|réservé|permission/i);
+  });
   await check("l'offre plus large ouvre un deuxième compteur", async () => {
     await user(A, (q) => q("insert into meters (name) values ('Boutique')"));
   });

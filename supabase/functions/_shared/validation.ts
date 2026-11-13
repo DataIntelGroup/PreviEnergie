@@ -51,6 +51,24 @@ export const PAYMENT_LABELS: Record<PaymentMethod, string> = {
   autre: "Autre",
 };
 
+/** Moyens acceptés pour le paiement manuel (numéros réglés dans le back-office). */
+export const MANUAL_METHODS = ["wave", "orange_money", "mtn_momo", "moov_money"] as const;
+export type ManualMethod = (typeof MANUAL_METHODS)[number];
+
+export function isManualMethod(v: unknown): v is ManualMethod {
+  return typeof v === "string" && (MANUAL_METHODS as readonly string[]).includes(v);
+}
+
+/** Identifiant de transaction recopié du SMS : sans espaces, en majuscules. */
+export function normalizeReference(raw: string): string {
+  return raw.replace(/\s+/g, "").toUpperCase();
+}
+
+/** 4 à 40 caractères : lettres, chiffres, point, tiret, barre (formats Wave, Orange, MTN, Moov). */
+export function isValidReference(raw: string): boolean {
+  return /^[A-Z0-9.\-_/]{4,40}$/.test(normalizeReference(raw));
+}
+
 /** CinetPay n'accepte que des multiples de 5 FCFA. */
 export function isCinetPayAmount(n: number): boolean {
   return Number.isInteger(n) && n > 0 && n % 5 === 0;

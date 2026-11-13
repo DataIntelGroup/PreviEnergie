@@ -23,6 +23,10 @@ const ACTIONS: Record<string, string> = {
   "account.delete": "Compte supprimé",
   "message.send": "Message envoyé",
   "user.trial": "Essai prolongé",
+  "payment.validate": "Paiement validé",
+  "payment.refuse": "Paiement refusé",
+  "user.reset_code": "Code de mot de passe envoyé",
+  "user.password_reset": "Mot de passe changé avec un code",
 };
 
 const PAGE = 50;

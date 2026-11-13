@@ -1,6 +1,7 @@
 // Réglages modifiables depuis le back-office sans redéploiement (BF-31).
 // La table `settings` ne stocke que les clés changées : tout le reste
 // vient d'ici. Les mêmes valeurs servent à l'application et au serveur.
+import type { ManualMethod } from "./validation.ts";
 
 export type Channel = "push" | "email" | "whatsapp" | "sms";
 export const CHANNELS: Channel[] = ["push", "email", "whatsapp", "sms"];
@@ -48,6 +49,9 @@ export interface Settings {
   /** Modèles de messages ; {nom}, {compteur}, {jours}, {date}, {heure} sont remplacés,
    *  et pour le bilan {kwh}, {evolution}, {depense}. */
   templates: Record<AlertType, string>;
+  /** Paiement manuel : numéro qui reçoit l'argent pour chaque moyen (vide = moyen masqué),
+   *  nom du titulaire affiché au client, délai d'activation promis en minutes. */
+  manualPayment: { numbers: Record<ManualMethod, string>; holder: string; delayMinutes: number };
 }
 
 export const DEFAULT_SETTINGS: Settings = {
@@ -82,6 +86,11 @@ export const DEFAULT_SETTINGS: Settings = {
       "{nom}, la consommation de « {compteur} » a doublé par rapport à d'habitude. Vérifie tes appareils.",
     bilan:
       "{nom}, ta semaine sur « {compteur} » : {kwh} consommés ({evolution}), {depense} de recharges.",
+  },
+  manualPayment: {
+    numbers: { wave: "", orange_money: "", mtn_momo: "", moov_money: "" },
+    holder: "Data Intelligence Group",
+    delayMinutes: 30,
   },
 };
 

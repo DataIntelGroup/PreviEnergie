@@ -71,7 +71,7 @@ const FAQ = [
   },
   {
     q: "Comment payer une offre ?",
-    a: "Par Wave, Orange Money, MTN MoMo ou Moov Money, via CinetPay. Chaque compte commence par 14 jours d'essai gratuit. Les offres sont ensuite mensuelles et sans engagement : sans renouvellement, ton compte passe en lecture seule et ton historique reste visible.",
+    a: "Par Wave, Orange Money ou MTN MoMo : tu envoies le montant sur notre numéro, tu indiques l'identifiant de la transaction, et ton offre est activée en moins de 30 minutes. Chaque compte commence par 14 jours d'essai gratuit. Les offres sont ensuite mensuelles et sans engagement : sans renouvellement, ton compte passe en lecture seule et ton historique reste visible.",
   },
 ];
 

@@ -11,7 +11,7 @@ import {
   resolveSettings,
   type Settings,
 } from "@shared/reglages.ts";
-import { isCinetPayAmount } from "@shared/validation.ts";
+import { isCinetPayAmount, MANUAL_METHODS, normalizePhone, PAYMENT_LABELS } from "@shared/validation.ts";
 import { type ReactNode, useEffect, useState } from "react";
 import { Button, Card, Field, Input, Notice, Spinner, useToast } from "@/components/ui";
 import { errorMessage, supabase } from "@/lib/supabase";
@@ -148,6 +148,32 @@ export default function Reglages() {
                 <Input type="number" disabled={ro} aria-label="Relance après l'apprentissage" value={s.readingReminderHours.standard} onChange={(e) => patch("readingReminderHours", { ...s.readingReminderHours, standard: Number(e.target.value) })} />
               </div>
             )}
+          </Field>
+        </div>
+      </Block>
+
+      <Block title="Paiement manuel" desc="Numéros qui reçoivent les paiements des offres. Un moyen sans numéro n'est pas proposé au client. Le client déclare l'identifiant de sa transaction ; tu valides dans « À traiter »." dirty={dirty("manualPayment")} readOnly={ro}
+        onReset={() => reset("manualPayment")}
+        onSave={() => save("manualPayment", (v) =>
+          !Object.values(v.numbers).every((n) => n === "" || /^(01|05|07)\d{8}$/.test(n)) ? "Numéro de 10 chiffres commençant par 01, 05 ou 07."
+          : !Object.values(v.numbers).some(Boolean) ? "Renseigne au moins un numéro."
+          : !v.holder.trim() ? "Indique le nom du titulaire."
+          : !(Number.isInteger(v.delayMinutes) && v.delayMinutes >= 5 && v.delayMinutes <= 1440) ? "Délai entre 5 et 1 440 minutes."
+          : null)}>
+        <div className="grid gap-3 sm:grid-cols-2">
+          {MANUAL_METHODS.map((m) => (
+            <Field key={m} label={`Numéro ${PAYMENT_LABELS[m]}`}>
+              {(id) => (
+                <Input id={id} inputMode="tel" placeholder="Non proposé" disabled={ro} value={s.manualPayment.numbers[m]}
+                  onChange={(e) => patch("manualPayment", { ...s.manualPayment, numbers: { ...s.manualPayment.numbers, [m]: normalizePhone(e.target.value) } })} />
+              )}
+            </Field>
+          ))}
+          <Field label="Nom du titulaire affiché">
+            {(id) => <Input id={id} disabled={ro} value={s.manualPayment.holder} onChange={(e) => patch("manualPayment", { ...s.manualPayment, holder: e.target.value })} />}
+          </Field>
+          <Field label="Délai d'activation promis (minutes)">
+            {numberInput(s.manualPayment.delayMinutes, (n) => patch("manualPayment", { ...s.manualPayment, delayMinutes: n }), { disabled: ro, min: 5 })}
           </Field>
         </div>
       </Block>

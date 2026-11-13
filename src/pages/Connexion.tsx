@@ -1,7 +1,8 @@
 // Connexion (BF-01) : email ou numéro de téléphone, et mot de passe. Création
 // de compte par email et mot de passe ; le profil (prénom, nom, numéro) est
-// demandé juste après. Mot de passe oublié ou compte sans mot de passe :
-// code à 6 chiffres par email, puis « Mon compte » pour en choisir un.
+// demandé juste après. Mot de passe oublié : demande à l'équipe, qui envoie
+// un code à 6 chiffres par WhatsApp au numéro du compte ; avec ce code, on
+// choisit le nouveau mot de passe ici même (fonction mot-de-passe).
 import { isValidPhone, normalizePhone, PASSWORD_MIN } from "@shared/validation.ts";
 import { type FormEvent, type ReactNode, useEffect, useRef, useState } from "react";
 import { Navigate, useSearchParams } from "react-router-dom";
@@ -12,9 +13,7 @@ import { safeNext } from "@/lib/routes";
 import { callFunction, errorMessage, isConfigured, supabase } from "@/lib/supabase";
 
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/;
-const RESEND_DELAY = 60;
-
-type Step = "connexion" | "inscription" | "code-email" | "code";
+type Step = "connexion" | "inscription" | "oubli" | "code";
 
 export default function Connexion() {
   const { session } = useAuth();
@@ -28,14 +27,7 @@ export default function Connexion() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
-  const [wait, setWait] = useState(0);
   const codeRef = useRef<HTMLInputElement>(null);
-
-  useEffect(() => {
-    if (wait <= 0) return;
-    const t = setTimeout(() => setWait((w) => w - 1), 1000);
-    return () => clearTimeout(t);
-  }, [wait]);
 
   useEffect(() => {
     if (step === "code") codeRef.current?.focus();
@@ -124,38 +116,48 @@ export default function Connexion() {
     }
   }
 
-  async function sendCode(e?: FormEvent) {
+  async function requestReset(e?: FormEvent) {
     e?.preventDefault();
-    const clean = email.trim().toLowerCase();
-    if (!EMAIL_RE.test(clean)) return setError("Entre une adresse email valide.");
+    const id = login.trim();
+    if (!id.includes("@") && !isValidPhone(id)) return setError("Entre ton email ou ton numéro de 10 chiffres.");
     setBusy(true);
     setError(null);
-    const { error } = await supabase.auth.signInWithOtp({
-      email: clean,
-      options: { shouldCreateUser: false, emailRedirectTo: `${window.location.origin}${safeNext(params.get("suite"))}` },
-    });
-    setBusy(false);
-    if (error) {
-      return setError(
-        error.status === 429 ? "Trop de demandes. Attends une minute avant de redemander un code."
-        : /signups not allowed|not found/i.test(error.message) ? "Aucun compte avec cet email : crée ton compte."
-        : errorMessage(error),
-      );
+    try {
+      await callFunction("mot-de-passe", { action: "demander", login: id.includes("@") ? id.toLowerCase() : normalizePhone(id) });
+      setPassword("");
+      setPassword2("");
+      go("code");
+      setInfo("Demande reçue. Tu vas recevoir un code à 6 chiffres par WhatsApp, au numéro de ton compte.");
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
     }
-    setEmail(clean);
-    go("code");
-    setWait(RESEND_DELAY);
   }
 
-  async function verify(e?: FormEvent) {
+  async function resetPassword(e?: FormEvent) {
     e?.preventDefault();
+    const id = login.trim();
     const token = code.replace(/\D/g, "");
     if (token.length !== 6) return setError("Le code contient 6 chiffres.");
+    if (password.length < PASSWORD_MIN) return setError(`Le mot de passe doit faire au moins ${PASSWORD_MIN} caractères.`);
+    if (password !== password2) return setError("Les deux mots de passe sont différents.");
     setBusy(true);
     setError(null);
-    const { error } = await supabase.auth.verifyOtp({ email, token, type: "email" });
-    setBusy(false);
-    if (error) setError("Code incorrect ou expiré. Vérifie l'email reçu ou demande un nouveau code.");
+    try {
+      const tokens = await callFunction<{ access_token: string; refresh_token: string }>("mot-de-passe", {
+        action: "reinitialiser",
+        login: id.includes("@") ? id.toLowerCase() : normalizePhone(id),
+        code: token,
+        password,
+      });
+      const { error } = await supabase.auth.setSession(tokens);
+      if (error) throw error;
+    } catch (err) {
+      setError(errorMessage(err));
+    } finally {
+      setBusy(false);
+    }
   }
 
   const tabs = (
@@ -208,7 +210,7 @@ export default function Connexion() {
           {error && <Notice tone="error">{error}</Notice>}
           <Button type="submit" loading={busy} className="w-full">Me connecter</Button>
           <p className="text-center text-sm">
-            {link("Mot de passe oublié ?", () => { setEmail(login.includes("@") ? login.trim() : ""); go("code-email"); })}
+            {link("Mot de passe oublié ?", () => go("oubli"))}
           </p>
         </form>
       )}
@@ -228,29 +230,28 @@ export default function Connexion() {
           <Button type="submit" loading={busy} className="w-full">Créer mon compte</Button>
           <p className="text-center text-sm text-stone-500">
             {email.trim() && !email.includes("@")
-              ? "Garde bien ton mot de passe : sans email, il ne peut pas être renvoyé automatiquement."
+              ? "Ensuite : ton prénom et ton nom. Mot de passe oublié ? On t'enverra un code par WhatsApp à ce numéro."
               : "Ensuite : ton prénom, ton nom et ton numéro. Tu pourras te connecter avec l'email ou le numéro."}
           </p>
         </form>
       )}
 
-      {step === "code-email" && (
-        <form onSubmit={sendCode} className="mt-8 space-y-4" noValidate>
-          <p className="text-stone-700">On t'envoie un code à 6 chiffres pour te connecter. Une fois dedans, choisis un nouveau mot de passe dans « Mon compte ».</p>
-          <p className="text-sm text-stone-500">
-            Compte créé avec ton numéro, sans email ? Écris-nous à <a href="mailto:contact@previenergie.ci" className="font-medium text-brand-700">contact@previenergie.ci</a> depuis n'importe quelle adresse, avec ton numéro : on te redonne l'accès.
+      {step === "oubli" && (
+        <form onSubmit={requestReset} className="mt-8 space-y-4" noValidate>
+          <h2 className="text-lg font-bold text-stone-900">Mot de passe oublié</h2>
+          <p className="text-stone-700">
+            Entre l'email ou le numéro de ton compte. On t'envoie un code à 6 chiffres par WhatsApp, au numéro enregistré sur ton compte, pour choisir un nouveau mot de passe.
           </p>
-          <Field label="Ton adresse email">
-            {(id) => <Input id={id} type="email" inputMode="email" autoComplete="email" placeholder="prenom@exemple.com" value={email} onChange={(e) => setEmail(e.target.value)} />}
+          <Field label="Email ou numéro de téléphone">
+            {(id) => <Input id={id} autoComplete="username" inputMode="email" placeholder="prenom@exemple.com ou 07 00 00 00 00" value={login} onChange={(e) => setLogin(e.target.value)} />}
           </Field>
           {error && <Notice tone="error">{error}</Notice>}
           <Button type="submit" loading={busy} className="w-full">Recevoir un code</Button>
           <div className="flex justify-between text-sm">
             {link("← Retour", () => go("connexion"))}
             {link("J'ai déjà un code", () => {
-              const clean = email.trim().toLowerCase();
-              if (!EMAIL_RE.test(clean)) return setError("Entre d'abord ton adresse email.");
-              setEmail(clean);
+              const id = login.trim();
+              if (!id.includes("@") && !isValidPhone(id)) return setError("Entre d'abord ton email ou ton numéro.");
               go("code");
             })}
           </div>
@@ -258,10 +259,11 @@ export default function Connexion() {
       )}
 
       {step === "code" && (
-        <form onSubmit={verify} className="mt-8 space-y-4" noValidate>
-          <p className="text-stone-700">
-            Code envoyé à <strong>{email}</strong>. Saisis les 6 chiffres, ou touche le lien de l'email. Regarde aussi dans les courriers indésirables.
-          </p>
+        <form onSubmit={resetPassword} className="mt-8 space-y-4" noValidate>
+          <h2 className="text-lg font-bold text-stone-900">Nouveau mot de passe</h2>
+          {info ? <Notice tone="success">{info}</Notice> : (
+            <p className="text-stone-700">Saisis le code reçu par WhatsApp pour <strong>{login.trim()}</strong>, puis ton nouveau mot de passe.</p>
+          )}
           <Field label="Code à 6 chiffres">
             {(id) => (
               <Input
@@ -278,14 +280,18 @@ export default function Connexion() {
               />
             )}
           </Field>
+          <Field label="Nouveau mot de passe" hint={`${PASSWORD_MIN} caractères au moins.`}>
+            {(id) => <Input id={id} type="password" autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} />}
+          </Field>
+          <Field label="Retape le mot de passe">
+            {(id) => <Input id={id} type="password" autoComplete="new-password" value={password2} onChange={(e) => setPassword2(e.target.value)} />}
+          </Field>
           {error && <Notice tone="error">{error}</Notice>}
-          <Button type="submit" loading={busy} className="w-full" disabled={code.length !== 6}>Me connecter</Button>
-          <div className="flex justify-between text-sm">
-            {link("← Retour", () => { setCode(""); go("connexion"); })}
-            <button type="button" className="font-medium text-brand-700 disabled:text-stone-400" disabled={wait > 0 || busy} onClick={() => void sendCode()}>
-              {wait > 0 ? `Renvoyer (${wait} s)` : "Renvoyer le code"}
-            </button>
-          </div>
+          <Button type="submit" loading={busy} className="w-full" disabled={code.length !== 6}>Changer mon mot de passe</Button>
+          <p className="text-sm text-stone-500">
+            Pas de code au bout de 30 minutes ? Écris-nous à <a href="mailto:contact@previenergie.ci" className="font-medium text-brand-700">contact@previenergie.ci</a> avec ton numéro.
+          </p>
+          <div className="text-sm">{link("← Retour à la connexion", () => { setCode(""); go("connexion"); })}</div>
         </form>
       )}
     </BareLayout>
