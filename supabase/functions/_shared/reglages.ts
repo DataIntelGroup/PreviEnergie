@@ -89,7 +89,7 @@ export const DEFAULT_SETTINGS: Settings = {
   },
   manualPayment: {
     numbers: { wave: "", orange_money: "", mtn_momo: "", moov_money: "" },
-    holder: "Data Intelligence Group",
+    holder: "PréviÉnergie",
     delayMinutes: 30,
   },
 };
