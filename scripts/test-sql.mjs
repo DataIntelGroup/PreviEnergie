@@ -274,6 +274,22 @@ async function main() {
     const log = await db.query("select count(*)::int n from audit_log where action = 'user.trial' and target_id = $1", [A]);
     assert(log.rows[0].n === 1);
   });
+  await check("offrir des jours d'offre : s'ajoutent à la même offre, admin seulement, journalisé", async () => {
+    const before = (await db.query("select plan_expires_at from profiles where id = $1", [B])).rows[0].plan_expires_at;
+    await user(ADMIN, (q) => q("select admin_gift_plan($1, 'essentiel', 10)", [B]));
+    const after = (await db.query("select plan_code, plan_expires_at from profiles where id = $1", [B])).rows[0];
+    assert(after.plan_code === "essentiel" && Math.round((after.plan_expires_at - before) / 86_400_000) === 10, JSON.stringify(after));
+    await user(ADMIN, (q) => q("select admin_gift_plan($1, 'famille_pro', 5)", [B]));
+    const other = (await db.query("select plan_code, plan_expires_at < now() + interval '6 days' ok from profiles where id = $1", [B])).rows[0];
+    assert(other.plan_code === "famille_pro" && other.ok, "une autre offre repart d'aujourd'hui");
+    await rejects(() => user(ADMIN, (q) => q("select admin_gift_plan($1, 'gratuit', 5)", [B])), /Offre invalide/);
+    await rejects(() => user(ADMIN, (q) => q("select admin_gift_plan($1, 'essentiel', 400)", [B])), /Durée invalide/);
+    await rejects(() => user(SUPPORT, (q) => q("select admin_gift_plan($1, 'essentiel', 5)", [B])), /42501|administrateurs/);
+    await rejects(() => user(B, (q) => q("select admin_gift_plan($1, 'essentiel', 5)", [B])), /42501|Réservé|administrateurs/);
+    const log = await db.query("select count(*)::int n from audit_log where action = 'user.gift' and target_id = $1", [B]);
+    assert(log.rows[0].n === 2);
+    await user(ADMIN, (q) => q("select admin_gift_plan($1, 'essentiel', 30)", [B]));
+  });
   await check("la liste des utilisateurs donne l'accès et les appareils abonnés", async () => {
     const { rows } = await user(SUPPORT, (q) => q("select admin_users('') as r"));
     const a = rows[0].r.rows.find((x) => x.id === A);

@@ -76,6 +76,7 @@ export default function Utilisateurs() {
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
   const [confirmEmail, setConfirmEmail] = useState("");
+  const [gift, setGift] = useState({ trialDays: "7", plan: "", planDays: "30", notify: true });
 
   useEffect(() => {
     supabase.from("plans").select("*").order("sort").then(({ data }) => setPlans((data as Plan[]) ?? []));
@@ -115,6 +116,7 @@ export default function Utilisateurs() {
     setError(null);
     setDeleting(false);
     setConfirmEmail("");
+    setGift((g) => ({ ...g, plan: u.effective_plan !== "gratuit" ? u.effective_plan : plans.find((p) => p.active && p.price_fcfa > 0)?.code ?? "" }));
     setForm({
       plan: u.effective_plan,
       expires: u.plan_expires_at && u.effective_plan !== "gratuit" ? toLocalInput(new Date(u.plan_expires_at)).slice(0, 10) : toLocalInput(new Date(Date.now() + 30 * 86_400_000)).slice(0, 10),
@@ -151,7 +153,38 @@ export default function Utilisateurs() {
       p_role: form.role,
     }), "Offre et rôle mis à jour");
 
-  const extendTrial = (days: number) => run(`essai${days}`, () => rpc("admin_extend_trial", { p_user: sel!.id, p_days: days }), `Essai prolongé de ${days} jours`);
+  /** Prévient le client du temps offert (notification, et email s'il est configuré). */
+  async function tell(body: string) {
+    if (!gift.notify) return;
+    try {
+      await callFunction("admin-clients", {
+        action: "envoyer", target: { userId: sel!.id }, title: "Un cadeau de l'équipe PréviÉnergie",
+        body, link: "/app/offres", channels: ["push", "email"], respectQuiet: false,
+      });
+    } catch (e) {
+      toast(`Temps offert, mais le client n'a pas pu être prévenu : ${errorMessage(e)}`, "error");
+    }
+  }
+
+  const extendTrial = (days: number) =>
+    run(`essai${days}`, async () => {
+      if (!Number.isInteger(days) || days < 1 || days > 60) throw new Error("Essai : de 1 à 60 jours.");
+      const { data, error } = await supabase.rpc("admin_extend_trial", { p_user: sel!.id, p_days: days });
+      if (error) throw error;
+      const until = (data as { trial_ends_at: string }).trial_ends_at;
+      await tell(`Bonjour {prenom}, on t'offre ${days} jours d'essai en plus : tout PréviÉnergie est ouvert jusqu'au ${fmtDateLong(until)}.`);
+    }, `Essai prolongé de ${days} jours`);
+
+  const giftPlan = (days: number) =>
+    run("offrir", async () => {
+      const plan = plans.find((p) => p.code === gift.plan);
+      if (!plan) throw new Error("Choisis une offre.");
+      if (!Number.isInteger(days) || days < 1 || days > 366) throw new Error("Offre : de 1 à 366 jours.");
+      const { data, error } = await supabase.rpc("admin_gift_plan", { p_user: sel!.id, p_plan: plan.code, p_days: days });
+      if (error) throw error;
+      const until = (data as { plan_expires_at: string }).plan_expires_at;
+      await tell(`Bonjour {prenom}, on t'offre ${days} jours de l'offre ${plan.name} : elle est active jusqu'au ${fmtDateLong(until)}. Merci de ta confiance !`);
+    }, `${days} jours offerts`);
 
   const setSuspended = (v: boolean) =>
     run("suspendre", () => rpc("admin_update_user", { p_user: sel!.id, p_suspended: v }), v ? "Compte suspendu" : "Compte réactivé");
@@ -352,19 +385,66 @@ export default function Utilisateurs() {
                   <Button className="w-full" loading={busy === "acces"} onClick={() => void saveAccess()}>Enregistrer l'offre et le rôle</Button>
                 </section>
 
-                {sel.access !== "paid" && (
-                  <section className="space-y-2">
-                    <h3 className="font-bold text-stone-900">Prolonger l'essai gratuit</h3>
+                <section className="space-y-4 rounded-2xl bg-brand-50/60 p-4 ring-1 ring-brand-100">
+                  <div>
+                    <h3 className="font-bold text-stone-900">Offrir du temps</h3>
+                    <p className="text-sm text-stone-500">Geste commercial, dédommagement, partenaire : aucun paiement n'est créé, tout est inscrit au journal.</p>
+                  </div>
+
+                  {sel.access !== "paid" && (
+                    <div className="space-y-2">
+                      <p className="text-sm font-semibold text-stone-800">Jours d'essai gratuit</p>
+                      <p className="text-sm text-stone-500">
+                        {sel.access === "trial" ? `Fin actuelle : ${fmtDateLong(sel.trial_ends_at)}. Les jours s'ajoutent à cette date.` : "Essai terminé : les jours partent d'aujourd'hui et rouvrent l'accès."}
+                      </p>
+                      <div className="grid grid-cols-3 gap-2">
+                        {[3, 7, 14].map((d) => (
+                          <Button key={d} variant="secondary" disabled={!!busy} loading={busy === `essai${d}`} onClick={() => void extendTrial(d)}>+{d} jours</Button>
+                        ))}
+                      </div>
+                      <div className="flex gap-2">
+                        <Input aria-label="Nombre de jours d'essai" inputMode="numeric" className="w-20 shrink-0 text-center" value={gift.trialDays}
+                          onChange={(e) => setGift({ ...gift, trialDays: e.target.value.replace(/\D/g, "").slice(0, 2) })} />
+                        <Button variant="secondary" className="flex-1" disabled={!!busy || !gift.trialDays} loading={busy === `essai${Number(gift.trialDays)}`}
+                          onClick={() => void extendTrial(Number(gift.trialDays))}>
+                          Ajouter {gift.trialDays || "…"} jours d'essai
+                        </Button>
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <p className="text-sm font-semibold text-stone-800">Jours d'une offre payante</p>
                     <p className="text-sm text-stone-500">
-                      {sel.access === "trial" ? `Fin actuelle : ${fmtDateLong(sel.trial_ends_at)}.` : "Essai terminé : la prolongation repart d'aujourd'hui et rouvre l'accès."}
+                      {sel.access === "paid" && sel.plan_expires_at
+                        ? `${planName(sel.effective_plan)} jusqu'au ${fmtDateLong(sel.plan_expires_at)}. Même offre : les jours s'ajoutent ; autre offre : elle remplace l'actuelle à partir d'aujourd'hui.`
+                        : "L'offre choisie est activée dès aujourd'hui pour le nombre de jours indiqué."}
                     </p>
-                    <div className="grid grid-cols-3 gap-2">
-                      {[3, 7, 14].map((d) => (
-                        <Button key={d} variant="secondary" loading={busy === `essai${d}`} onClick={() => void extendTrial(d)}>+{d} jours</Button>
+                    <div className="flex gap-2">
+                      <Select aria-label="Offre à offrir" value={gift.plan} onChange={(e) => setGift({ ...gift, plan: e.target.value })}>
+                        {plans.filter((p) => p.active && p.price_fcfa > 0).map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
+                      </Select>
+                      <Input aria-label="Nombre de jours d'offre" inputMode="numeric" className="w-20 shrink-0 text-center" value={gift.planDays}
+                        onChange={(e) => setGift({ ...gift, planDays: e.target.value.replace(/\D/g, "").slice(0, 3) })} />
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      {[7, 30, 90].map((d) => (
+                        <button key={d} type="button" onClick={() => setGift({ ...gift, planDays: String(d) })}
+                          className={`rounded-full px-3 py-1 text-sm font-medium ring-1 ${gift.planDays === String(d) ? "bg-brand-600 text-white ring-brand-600" : "bg-white text-stone-700 ring-stone-300"}`}>
+                          {d} jours
+                        </button>
                       ))}
                     </div>
-                  </section>
-                )}
+                    <Button className="w-full" disabled={!!busy || !gift.plan || !gift.planDays} loading={busy === "offrir"} onClick={() => void giftPlan(Number(gift.planDays))}>
+                      Offrir {gift.planDays || "…"} jours de {planName(gift.plan) || "l'offre"}
+                    </Button>
+                  </div>
+
+                  <label className="flex items-center gap-2 text-sm text-stone-700">
+                    <input type="checkbox" className="h-4 w-4 accent-brand-600" checked={gift.notify} onChange={(e) => setGift({ ...gift, notify: e.target.checked })} />
+                    Prévenir le client par notification
+                  </label>
+                </section>
 
                 <section className="space-y-2">
                   <h3 className="font-bold text-stone-900">{sel.suspended ? "Compte suspendu" : "Suspendre le compte"}</h3>

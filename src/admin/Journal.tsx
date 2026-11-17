@@ -23,6 +23,7 @@ const ACTIONS: Record<string, string> = {
   "account.delete": "Compte supprimé",
   "message.send": "Message envoyé",
   "user.trial": "Essai prolongé",
+  "user.gift": "Offre offerte",
   "payment.validate": "Paiement validé",
   "payment.refuse": "Paiement refusé",
   "user.reset_code": "Code de mot de passe envoyé",
