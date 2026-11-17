@@ -205,7 +205,7 @@ export function Hero({ onHowItWorks }: { onHowItWorks: () => void }) {
             </button>
           </div>
           <ul className="mt-8 flex flex-wrap gap-x-7 gap-y-3 text-[15px] text-stone-600">
-            {["14 jours gratuits", "Sans mot de passe", "Sans engagement"].map((t) => (
+            {["14 jours gratuits", "Sans engagement"].map((t) => (
               <li key={t} className="flex items-center gap-2">
                 <span className="grid h-5 w-5 place-items-center rounded-full bg-brand-400 text-white"><Icon name="check" className="h-3 w-3" strokeWidth={3} /></span>
                 {t}
