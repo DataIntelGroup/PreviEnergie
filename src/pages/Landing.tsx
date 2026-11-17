@@ -8,6 +8,7 @@ import { InstallAppButton } from "@/components/InstallAppButton";
 import { goToSection, Hero, LandingHeader } from "@/components/landing/Hero";
 import { Logo } from "@/components/Layout";
 import { fcfa } from "@/lib/format";
+import { LOGO_METHODS, PaymentLogo } from "@/components/PaymentLogo";
 import { useReveal } from "@/lib/install";
 import { R } from "@/lib/routes";
 import { supabase } from "@/lib/supabase";
@@ -211,7 +212,10 @@ export default function Landing() {
           <div className="reveal mx-auto max-w-2xl text-center">
             <p className="text-sm font-bold tracking-wide text-brand-700 uppercase">Tarifs</p>
             <h2 className="mt-2 text-3xl font-extrabold tracking-tight sm:text-4xl">14 jours gratuits, puis dès 1 000 FCFA par mois.</h2>
-            <p className="mt-3 text-stone-600">Chaque compte commence par 14 jours d'essai gratuit, sans moyen de paiement. Ensuite, paiement mensuel par Wave, Orange Money, MTN MoMo ou Moov Money.</p>
+            <p className="mt-3 text-stone-600">Chaque compte commence par 14 jours d'essai gratuit, sans moyen de paiement. Ensuite, paiement mensuel par Wave, Orange Money ou MTN MoMo, activé en moins de 30 minutes.</p>
+            <div className="mt-5 flex items-center justify-center gap-3">
+              {LOGO_METHODS.map((m) => <PaymentLogo key={m} method={m} className="h-11 w-11" />)}
+            </div>
           </div>
           <div className="mt-12 grid gap-5 sm:grid-cols-2 xl:grid-cols-4">
             {(plans ?? []).filter((p) => p.price_fcfa > 0).map((p, i) => {

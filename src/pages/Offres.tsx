@@ -6,6 +6,7 @@ import { CHANNEL_LABELS } from "@shared/reglages.ts";
 import { formatPhone, isValidPhone, isValidReference, type ManualMethod, MANUAL_METHODS, normalizePhone, PAYMENT_LABELS } from "@shared/validation.ts";
 import { type FormEvent, useEffect, useRef, useState } from "react";
 import { AccessBanner } from "@/components/AccessBanner";
+import { PaymentLogo } from "@/components/PaymentLogo";
 import { Button, Card, Field, Input, Notice, PageTitle } from "@/components/ui";
 import { useAuth } from "@/lib/auth";
 import { useData } from "@/lib/data";
@@ -14,14 +15,6 @@ import { callFunction, errorMessage, supabase } from "@/lib/supabase";
 import { effectivePlanCode, type PaymentRow, type Plan } from "@/lib/types";
 
 const STATUS = { pending: "En vérification", accepted: "Validé", refused: "Refusé" } as const;
-
-/** Couleur de marque de chaque moyen, pour les reconnaître d'un coup d'œil. */
-const METHOD_STYLE: Record<ManualMethod, string> = {
-  wave: "bg-sky-500",
-  orange_money: "bg-orange-500",
-  mtn_momo: "bg-yellow-400 text-stone-900",
-  moov_money: "bg-blue-700",
-};
 
 export default function Offres() {
   const { profile, refreshProfile } = useAuth();
@@ -65,6 +58,11 @@ export default function Offres() {
         Sans engagement, 30 jours par paiement{methods.length ? `, par ${methods.map((m) => PAYMENT_LABELS[m]).join(", ")}` : ""}.
         Ton offre est activée en moins de {settings.manualPayment.delayMinutes} minutes après ton paiement.
       </p>
+      {methods.length > 0 && (
+        <div className="flex items-center gap-2" aria-label="Moyens de paiement acceptés">
+          {methods.map((m) => <PaymentLogo key={m} method={m} className="h-9 w-9" />)}
+        </div>
+      )}
       <AccessBanner />
 
       {done && <Notice tone="success">{done}</Notice>}
@@ -132,8 +130,9 @@ export default function Offres() {
           <ul className="divide-y divide-stone-200 overflow-hidden rounded-2xl bg-white ring-1 ring-stone-200">
             {payments.map((p) => (
               <li key={p.id} className="px-4 py-3 text-sm">
-                <div className="flex justify-between gap-3">
-                  <span>
+                <div className="flex items-center justify-between gap-3">
+                  {p.method && <PaymentLogo method={p.method} className="h-7 w-7" />}
+                  <span className="min-w-0 flex-1">
                     {plans.find((x) => x.code === p.plan_code)?.name ?? p.plan_code} · {fmtDate(p.created_at)}
                     {p.reference && <span className="text-stone-500"> · réf. {p.reference}</span>}
                   </span>
@@ -209,8 +208,8 @@ function PayForm({ plan, methods, defaultPhone, onCancel, onDone }: {
         <div className="grid grid-cols-2 gap-2 sm:grid-cols-4" role="radiogroup" aria-label="Moyen de paiement">
           {methods.map((m) => (
             <button key={m} type="button" role="radio" aria-checked={method === m} onClick={() => setMethod(m)}
-              className={`flex items-center gap-2 rounded-xl border px-3 py-2.5 text-left text-sm font-semibold transition ${method === m ? "border-brand-500 bg-brand-50 ring-2 ring-brand-200" : "border-stone-200 bg-white hover:border-stone-300"}`}>
-              <span className={`h-3 w-3 shrink-0 rounded-full ${METHOD_STYLE[m]}`} aria-hidden />
+              className={`flex items-center gap-3 rounded-xl border px-3 py-2.5 text-left text-sm font-semibold transition ${method === m ? "border-brand-500 bg-brand-50 ring-2 ring-brand-200" : "border-stone-200 bg-white hover:border-stone-300"}`}>
+              <PaymentLogo method={m} className="h-9 w-9" decorative />
               {PAYMENT_LABELS[m]}
             </button>
           ))}
@@ -218,7 +217,10 @@ function PayForm({ plan, methods, defaultPhone, onCancel, onDone }: {
       </div>
 
       <div className="rounded-2xl bg-stone-50 p-4 ring-1 ring-stone-200">
-        <p className="text-sm font-semibold text-stone-800">2. Envoie {fcfa(plan.price_fcfa)} par {PAYMENT_LABELS[method]} au</p>
+        <div className="flex items-center gap-3">
+          <PaymentLogo method={method} className="h-11 w-11" decorative />
+          <p className="text-sm font-semibold text-stone-800">2. Envoie {fcfa(plan.price_fcfa)} par {PAYMENT_LABELS[method]} au</p>
+        </div>
         <div className="mt-2 flex flex-wrap items-center gap-3">
           <p className="tabular text-3xl font-extrabold tracking-wide text-stone-900">{formatPhone(number)}</p>
           <Button type="button" variant="secondary" className="w-auto" onClick={() => void copy()}>{copied ? "Copié ✓" : "Copier"}</Button>

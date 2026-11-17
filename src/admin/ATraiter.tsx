@@ -4,6 +4,7 @@
 // Réservé aux administrateurs (fonction admin-demandes).
 import { type ManualMethod, formatPhone, PAYMENT_LABELS, type PaymentMethod } from "@shared/validation.ts";
 import { useCallback, useEffect, useState } from "react";
+import { PaymentLogo } from "@/components/PaymentLogo";
 import { Button, Card, Notice, Spinner, useToast } from "@/components/ui";
 import { useData } from "@/lib/data";
 import { fcfa, fmtAgo, fmtDateTime } from "@/lib/format";
@@ -106,7 +107,7 @@ export default function ATraiter() {
               <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-4">
                 <div><dt className="text-stone-500">Offre</dt><dd className="font-medium">{planName(p.plan_code)} · {fcfa(p.amount_fcfa)}</dd></div>
                 <div><dt className="text-stone-500">Montant déclaré</dt><dd className={`font-medium ${short ? "text-red-700" : ""}`}>{fcfa(p.declared_amount)}</dd></div>
-                <div><dt className="text-stone-500">Moyen</dt><dd className="font-medium">{PAYMENT_LABELS[p.method as PaymentMethod] ?? p.method}</dd></div>
+                <div><dt className="text-stone-500">Moyen</dt><dd className="flex items-center gap-2 font-medium"><PaymentLogo method={p.method} className="h-6 w-6" decorative />{PAYMENT_LABELS[p.method as PaymentMethod] ?? p.method}</dd></div>
                 <div><dt className="text-stone-500">Payé depuis</dt><dd className="font-medium">{p.payer_phone ? formatPhone(p.payer_phone) : "–"}</dd></div>
               </dl>
               <div className="rounded-xl bg-stone-50 px-3 py-2 ring-1 ring-stone-200">
@@ -198,8 +199,8 @@ export default function ATraiter() {
           <h2 className="mb-2 text-lg font-semibold">Traités ces 7 derniers jours</h2>
           <ul className="divide-y divide-stone-200 overflow-hidden rounded-2xl bg-white text-sm ring-1 ring-stone-200">
             {data.recent.map((p) => (
-              <li key={p.id} className="flex flex-wrap justify-between gap-2 px-4 py-3">
-                <span>{name(person(p.user_id))} · {planName(p.plan_code)} · {PAYMENT_LABELS[p.method as PaymentMethod] ?? p.method} · réf. {p.reference}</span>
+              <li key={p.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3">
+                <span className="flex items-center gap-2"><PaymentLogo method={p.method} className="h-6 w-6" decorative />{name(person(p.user_id))} · {planName(p.plan_code)} · {PAYMENT_LABELS[p.method as PaymentMethod] ?? p.method} · réf. {p.reference}</span>
                 <span className={p.status === "accepted" ? "text-emerald-700" : "text-red-600"}>
                   {fcfa(p.declared_amount ?? p.amount_fcfa)} · {p.status === "accepted" ? "validé" : `refusé (${p.refusal_reason ?? ""})`} · {fmtAgo(p.verified_at)}
                 </span>
